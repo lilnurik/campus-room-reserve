@@ -6,27 +6,27 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { User, KeyRound, Shield } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("student");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
-    // Simple mock login logic based on role
-    switch (role) {
-      case "student":
-        navigate("/student/dashboard");
-        break;
-      case "guard":
-        navigate("/guard/dashboard");
-        break;
-      case "admin":
-        navigate("/admin/dashboard");
-        break;
+    try {
+      const success = await login(email, password);
+      if (success) {
+        // Navigation is handled in the AuthContext after successful login
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -37,7 +37,28 @@ const LoginPage = () => {
           <CardTitle className="text-2xl font-bold text-primary">UniBooker</CardTitle>
           <CardDescription>Войдите в систему бронирования помещений</CardDescription>
         </CardHeader>
-        <Tabs defaultValue="student" onValueChange={setRole} className="w-full">
+        
+        <div className="px-6 pb-4 text-center">
+          <div className="bg-muted p-3 rounded-md mb-4">
+            <h3 className="font-semibold mb-2">Тестовые пользователи:</h3>
+            <div className="grid grid-cols-1 gap-2 text-sm text-left">
+              <div className="flex justify-between">
+                <span><User size={14} className="inline mr-1" /> Студент:</span>
+                <span className="font-mono">ivan@example.com / password</span>
+              </div>
+              <div className="flex justify-between">
+                <span><KeyRound size={14} className="inline mr-1" /> Охранник:</span>
+                <span className="font-mono">sergey@example.com / password</span>
+              </div>
+              <div className="flex justify-between">
+                <span><Shield size={14} className="inline mr-1" /> Админ:</span>
+                <span className="font-mono">elena@example.com / password</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <Tabs defaultValue={role} onValueChange={setRole} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="student" className="flex items-center gap-2">
               <User size={16} />
@@ -76,8 +97,8 @@ const LoginPage = () => {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button type="submit" className="w-full">
-                  Войти как студент
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Вход..." : "Войти как студент"}
                 </Button>
               </CardFooter>
             </form>
@@ -106,8 +127,8 @@ const LoginPage = () => {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button type="submit" className="w-full">
-                  Войти как охранник
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Вход..." : "Войти как охранник"}
                 </Button>
               </CardFooter>
             </form>
@@ -136,8 +157,8 @@ const LoginPage = () => {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button type="submit" className="w-full">
-                  Войти как администратор
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Вход..." : "Войти как администратор"}
                 </Button>
               </CardFooter>
             </form>

@@ -1,14 +1,15 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 // Types for users
-type Role = 'student' | 'guard' | 'admin';
+export type Role = 'student' | 'guard' | 'admin';
 
-interface User {
+export interface User {
   id: number;
   name: string;
-  email?: string;
+  email: string;
   role: Role;
 }
 
@@ -19,12 +20,11 @@ interface AuthContextType {
   isLoading: boolean;
 }
 
-// Mock data
+// Mock data - simple test users
 const MOCK_USERS = [
   { id: 1, name: "Иван Иванов", email: "ivan@example.com", role: "student" as Role },
-  { id: 2, name: "Анна Смирнова", email: "anna@example.com", role: "student" as Role },
-  { id: 201, name: "Сергей Петров", email: "sergey@example.com", role: "guard" as Role },
-  { id: 301, name: "Елена Волкова", email: "elena@example.com", role: "admin" as Role }
+  { id: 2, name: "Сергей Петров", email: "sergey@example.com", role: "guard" as Role },
+  { id: 3, name: "Елена Волкова", email: "elena@example.com", role: "admin" as Role }
 ];
 
 // Password is 'password' for all users in this demo
@@ -35,6 +35,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Check for stored user on mount
@@ -49,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     const foundUser = MOCK_USERS.find(user => user.email === email);
     
@@ -57,6 +58,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(foundUser);
       localStorage.setItem('user', JSON.stringify(foundUser));
       toast.success(`Добро пожаловать, ${foundUser.name}!`);
+      
+      // Redirect based on role
+      switch (foundUser.role) {
+        case 'student':
+          navigate('/student/dashboard');
+          break;
+        case 'guard':
+          navigate('/guard/dashboard');
+          break;
+        case 'admin':
+          navigate('/admin/dashboard');
+          break;
+      }
+      
       setIsLoading(false);
       return true;
     } else {
@@ -70,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     localStorage.removeItem('user');
     toast.info('Вы вышли из системы');
+    navigate('/login');
   };
 
   return (
