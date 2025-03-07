@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/utils';
 
-interface QRCodeDisplayProps {
+export interface QRCodeDisplayProps {
   bookingId: number;
   roomName: string;
   accessCode: string;

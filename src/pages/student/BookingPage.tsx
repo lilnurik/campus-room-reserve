@@ -23,7 +23,7 @@ interface Room {
   title: string;
   capacity: number;
   features: string[];
-  status: string;
+  status: "available" | "maintenance" | "unavailable";
   type: string;
 }
 
@@ -46,6 +46,8 @@ interface Booking {
   key_returned: boolean;
   access_code: string;
   notes: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Mock data
@@ -167,7 +169,9 @@ const BookingPage = () => {
         key_issued: false,
         key_returned: false,
         access_code: (Math.floor(1000 + Math.random() * 9000)).toString(),
-        notes: ""
+        notes: "",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       
       setBooking(newBooking);
@@ -291,7 +295,7 @@ const BookingPage = () => {
                         <Calendar
                           mode="single"
                           selected={date}
-                          onSelect={(date) => date && setDate(date)}
+                          onSelect={(newDate) => newDate && setDate(newDate)}
                           initialFocus
                         />
                       </PopoverContent>
@@ -349,12 +353,9 @@ const BookingPage = () => {
                     {mockTimeSlots.map((timeSlot) => (
                       <TimeSlotCard
                         key={timeSlot.id}
-                        id={timeSlot.id}
-                        start={timeSlot.start}
-                        end={timeSlot.end}
-                        status={timeSlot.status}
-                        selected={selectedTimeSlot?.id === timeSlot.id}
+                        slot={timeSlot}
                         onSelect={() => handleTimeSlotSelect(timeSlot)}
+                        isSelected={selectedTimeSlot?.id === timeSlot.id}
                       />
                     ))}
                   </div>
@@ -438,10 +439,11 @@ const BookingPage = () => {
             </DialogHeader>
             <div className="flex items-center justify-center py-4">
               <QRCodeDisplay 
-                code={booking?.access_code || ""}
+                bookingId={parseInt(booking?.id || "0")}
                 roomName={booking?.room.name || ""}
-                date={booking ? formatDate(booking.start) : ""}
-                time={booking ? `${formatTime(booking.start)} - ${formatTime(booking.end)}` : ""}
+                accessCode={booking?.access_code || ""}
+                startTime={booking?.start || ""}
+                endTime={booking?.end || ""}
               />
             </div>
             <DialogFooter>

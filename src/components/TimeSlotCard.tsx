@@ -1,11 +1,17 @@
 
 import React from 'react';
-import { TimeSlot } from '@/context/BookingContext';
 import { formatTime, getStatusColor, getStatusName } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Clock } from 'lucide-react';
 
-interface TimeSlotCardProps {
+export interface TimeSlot {
+  id: string;
+  start: string;
+  end: string;
+  status: 'available' | 'booked' | 'class' | 'maintenance';
+}
+
+export interface TimeSlotCardProps {
   slot: TimeSlot;
   onSelect?: (slot: TimeSlot) => void;
   isSelected?: boolean;
