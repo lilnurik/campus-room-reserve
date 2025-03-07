@@ -22,7 +22,8 @@ const mockRooms = [
     title: "Комната для групповых занятий",
     capacity: 30,
     features: ["Wi-Fi", "Проектор", "Флипчарт"],
-    status: "available"
+    status: "available",
+    type: "classroom"
   },
   {
     id: 2,
@@ -31,7 +32,8 @@ const mockRooms = [
     title: "Зал для самостоятельной работы",
     capacity: 15,
     features: ["Wi-Fi", "Тихая зона", "Компьютеры"],
-    status: "available"
+    status: "available",
+    type: "study_room"
   },
   {
     id: 3,
@@ -40,7 +42,8 @@ const mockRooms = [
     title: "Лаборатория",
     capacity: 20,
     features: ["Wi-Fi", "Лабораторное оборудование", "Компьютеры"],
-    status: "available"
+    status: "available",
+    type: "lab"
   },
   {
     id: 4,
@@ -49,7 +52,8 @@ const mockRooms = [
     title: "Учебная аудитория",
     capacity: 25,
     features: ["Wi-Fi", "Проектор", "Интерактивная доска"],
-    status: "available"
+    status: "available",
+    type: "classroom"
   }
 ];
 
@@ -183,8 +187,8 @@ const BookingPage = () => {
                 <>
                   <RoomCard 
                     room={selectedRoomData!} 
-                    selected={true}
                     onSelect={() => {}}
+                    isSelected={true}
                   />
                   <Button
                     variant="outline"
@@ -201,8 +205,8 @@ const BookingPage = () => {
                       <RoomCard 
                         key={room.id} 
                         room={room} 
-                        selected={room.id === selectedRoom}
                         onSelect={() => handleRoomSelect(room.id)}
+                        isSelected={room.id === selectedRoom}
                       />
                     ))
                   ) : (
@@ -229,9 +233,9 @@ const BookingPage = () => {
                   {mockTimeSlots.map(slot => (
                     <TimeSlotCard
                       key={slot.id}
-                      timeSlot={slot}
-                      selected={slot.id === selectedTimeSlot}
+                      slot={slot}
                       onSelect={() => handleTimeSlotSelect(slot.id)}
+                      isSelected={slot.id === selectedTimeSlot}
                     />
                   ))}
                   {selectedTimeSlot && (
@@ -378,11 +382,13 @@ const BookingPage = () => {
               </p>
             </div>
             <div className="flex justify-center pt-2">
-              <QRCodeDisplay value={bookingCode} size={180} />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium">Код доступа</p>
-              <p className="text-lg font-mono mt-1">{bookingCode}</p>
+              <QRCodeDisplay 
+                bookingId={123}
+                roomName={selectedRoomData?.name || ""}
+                accessCode={bookingCode}
+                startTime={mockTimeSlots.find(slot => slot.id === selectedTimeSlot)?.start || ""}
+                endTime={mockTimeSlots.find(slot => slot.id === selectedTimeSlot)?.end || ""}
+              />
             </div>
           </div>
           <DialogFooter>
