@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Calendar, Filter, Search, Clock } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Filter, Search, Clock } from "lucide-react";
 import BookingCard from "@/components/BookingCard";
 import PageLayout from "@/components/PageLayout";
 import { formatDate } from "@/lib/utils";
@@ -20,6 +22,8 @@ interface Booking {
   key_returned: boolean;
   access_code: string;
   notes: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const mockBookings: Booking[] = [
@@ -34,7 +38,9 @@ const mockBookings: Booking[] = [
     key_issued: true,
     key_returned: false,
     access_code: "1234",
-    notes: "Групповое занятие"
+    notes: "Групповое занятие",
+    created_at: "2024-09-01T10:00:00",
+    updated_at: "2024-09-01T10:00:00"
   },
   {
     id: 2,
@@ -47,7 +53,9 @@ const mockBookings: Booking[] = [
     key_issued: true,
     key_returned: true,
     access_code: "5678",
-    notes: "Индивидуальная работа"
+    notes: "Индивидуальная работа",
+    created_at: "2024-09-02T10:00:00",
+    updated_at: "2024-09-02T10:00:00"
   },
   {
     id: 3,
@@ -60,7 +68,9 @@ const mockBookings: Booking[] = [
     key_issued: false,
     key_returned: false,
     access_code: null,
-    notes: "Отменено"
+    notes: "Отменено",
+    created_at: "2024-09-03T10:00:00",
+    updated_at: "2024-09-03T10:00:00"
   },
   {
     id: 4,
@@ -73,7 +83,9 @@ const mockBookings: Booking[] = [
     key_issued: false,
     key_returned: false,
     access_code: null,
-    notes: "Ожидает подтверждения"
+    notes: "Ожидает подтверждения",
+    created_at: "2024-09-04T10:00:00",
+    updated_at: "2024-09-04T10:00:00"
   },
   {
     id: 5,
@@ -86,7 +98,9 @@ const mockBookings: Booking[] = [
     key_issued: true,
     key_returned: false,
     access_code: "9012",
-    notes: "Подготовка к конференции"
+    notes: "Подготовка к конференции",
+    created_at: "2024-09-05T10:00:00",
+    updated_at: "2024-09-05T10:00:00"
   }
 ];
 
@@ -103,7 +117,8 @@ const BookingHistoryPage = () => {
     const filterMatch =
       filter === "all" || booking.status.toLowerCase() === filter;
 
-    const dateMatch = !date || formatDate(booking.start) === formatDate(date);
+    // Fix: Convert Date to string for comparison
+    const dateMatch = !date || formatDate(booking.start) === formatDate(date.toISOString());
 
     return searchMatch && filterMatch && dateMatch;
   });
@@ -124,7 +139,7 @@ const BookingHistoryPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Search className="h-5 w-5 text-muted-foreground" />
-                  Поиск бронирований
+                  <span>Поиск бронирований</span>
                 </CardTitle>
                 <CardDescription>
                   Ищите бронирования по номеру комнаты или имени студента
@@ -147,7 +162,7 @@ const BookingHistoryPage = () => {
             <div className="space-y-3">
               {filteredBookings.length > 0 ? (
                 filteredBookings.map((booking) => (
-                  <BookingCard key={booking.id} booking={booking} />
+                  <BookingCard key={booking.id} booking={booking as any} />
                 ))
               ) : (
                 <Card className="p-4 text-center text-muted-foreground">
@@ -162,7 +177,7 @@ const BookingHistoryPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Filter className="h-5 w-5 text-muted-foreground" />
-                  Фильтры
+                  <span>Фильтры</span>
                 </CardTitle>
                 <CardDescription>
                   Фильтруйте бронирования по статусу и дате

@@ -1,403 +1,457 @@
+
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import { ru } from "date-fns/locale";
-import { CalendarIcon, Clock, Building, MapPin, UserCheck, Check } from "lucide-react";
-import PageLayout from "@/components/PageLayout";
+import { Badge } from "@/components/ui/badge";
+import { Search, Filter, Calendar as CalendarIcon, Clock, User, Building, UsersRound } from "lucide-react";
 import RoomCard from "@/components/RoomCard";
 import TimeSlotCard from "@/components/TimeSlotCard";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PageLayout from "@/components/PageLayout";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
+import { formatDate, formatTime, formatDuration, getStatusColor, getTimeDifferenceInMinutes, generateId } from "@/lib/utils";
 
-// Mock rooms data
-const mockRooms = [
+// Define interfaces
+interface Room {
+  id: string;
+  name: string;
+  building: string;
+  title: string;
+  capacity: number;
+  features: string[];
+  status: string;
+  type: string;
+}
+
+interface TimeSlot {
+  id: string;
+  start: string;
+  end: string;
+  status: "available" | "booked" | "class" | "maintenance";
+}
+
+interface Booking {
+  id: string;
+  room: Room;
+  student_id: string;
+  student_name: string;
+  start: string;
+  end: string;
+  status: string;
+  key_issued: boolean;
+  key_returned: boolean;
+  access_code: string;
+  notes: string;
+}
+
+// Mock data
+const mockRooms: Room[] = [
   {
-    id: 1,
-    name: "A101",
+    id: "1",
+    name: "А101",
     building: "Главный корпус",
-    title: "Комната для групповых занятий",
+    title: "Лекционная аудитория",
+    capacity: 120,
+    features: ["Проектор", "Компьютер", "Микрофон"],
+    status: "available",
+    type: "lecture"
+  },
+  {
+    id: "2",
+    name: "Б203",
+    building: "Корпус Б",
+    title: "Компьютерный класс",
     capacity: 30,
-    features: ["Wi-Fi", "Проектор", "Флипчарт"],
+    features: ["Компьютеры", "Интерактивная доска"],
     status: "available",
-    type: "classroom"
+    type: "computer"
   },
   {
-    id: 2,
-    name: "B203",
-    building: "Библиотека",
-    title: "Зал для самостоятельной работы",
-    capacity: 15,
-    features: ["Wi-Fi", "Тихая зона", "Компьютеры"],
+    id: "3",
+    name: "В305",
+    building: "Корпус В",
+    title: "Семинарская комната",
+    capacity: 25,
+    features: ["Круглый стол", "Флипчарт"],
     status: "available",
-    type: "study_room"
+    type: "seminar"
   },
   {
-    id: 3,
-    name: "C305",
-    building: "Лабораторный корпус",
+    id: "4",
+    name: "Г407",
+    building: "Корпус Г",
     title: "Лаборатория",
     capacity: 20,
-    features: ["Wi-Fi", "Лабораторное оборудование", "Компьютеры"],
+    features: ["Лабораторное оборудование", "Компьютеры"],
     status: "available",
     type: "lab"
-  },
-  {
-    id: 4,
-    name: "A105",
-    building: "Главный корпус",
-    title: "Учебная аудитория",
-    capacity: 25,
-    features: ["Wi-Fi", "Проектор", "Интерактивная доска"],
-    status: "available",
-    type: "classroom"
   }
 ];
 
-// Mock time slots data
-const mockTimeSlots = [
-  { id: 1, start: "08:00", end: "10:00", status: "available" },
-  { id: 2, start: "10:00", end: "12:00", status: "class" },
-  { id: 3, start: "12:00", end: "14:00", status: "available" },
-  { id: 4, start: "14:00", end: "16:00", status: "available" },
-  { id: 5, start: "16:00", end: "18:00", status: "booked" },
-  { id: 6, start: "18:00", end: "20:00", status: "available" }
+const mockTimeSlots: TimeSlot[] = [
+  {
+    id: "1",
+    start: "2024-09-15T08:00:00",
+    end: "2024-09-15T09:30:00",
+    status: "available"
+  },
+  {
+    id: "2",
+    start: "2024-09-15T10:00:00",
+    end: "2024-09-15T11:30:00",
+    status: "booked"
+  },
+  {
+    id: "3",
+    start: "2024-09-15T12:00:00",
+    end: "2024-09-15T13:30:00",
+    status: "class"
+  },
+  {
+    id: "4",
+    start: "2024-09-15T14:00:00",
+    end: "2024-09-15T15:30:00",
+    status: "available"
+  },
+  {
+    id: "5",
+    start: "2024-09-15T16:00:00",
+    end: "2024-09-15T17:30:00",
+    status: "maintenance"
+  }
 ];
 
 const BookingPage = () => {
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [building, setBuilding] = useState("all");
-  const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<number | null>(null);
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [bookingCode, setBookingCode] = useState("");
+  const [step, setStep] = useState(1);
+  const [date, setDate] = useState<Date>(new Date());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
+  const [bookingConfirmed, setBookingConfirmed] = useState(false);
+  const [booking, setBooking] = useState<Booking | null>(null);
+  const [showQRCode, setShowQRCode] = useState(false);
 
-  const handleRoomSelect = (roomId: number) => {
-    setSelectedRoom(roomId);
-    setSelectedTimeSlot(null);
-  };
-
-  const handleTimeSlotSelect = (timeSlotId: number) => {
-    setSelectedTimeSlot(timeSlotId);
-  };
-
-  const handleBookingRequest = () => {
-    setConfirmDialogOpen(true);
-  };
-
-  const handleConfirmBooking = () => {
-    setConfirmDialogOpen(false);
-    
-    // In a real app, this would send the booking request to the backend
-    // For now, we'll simulate a successful booking
-    setTimeout(() => {
-      setBookingCode("BOOKING123456");
-      setSuccessDialogOpen(true);
-    }, 500);
-  };
-
-  const filteredRooms = mockRooms.filter(room => 
-    building === "all" || room.building.includes(building)
+  // Filter rooms based on search query
+  const filteredRooms = mockRooms.filter((room) =>
+    room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    room.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    room.building.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedRoomData = mockRooms.find(room => room.id === selectedRoom);
-  
+  // Handle room selection
+  const handleRoomSelect = (room: Room) => {
+    setSelectedRoom(room);
+    setStep(2);
+  };
+
+  // Handle time slot selection
+  const handleTimeSlotSelect = (timeSlot: TimeSlot) => {
+    setSelectedTimeSlot(timeSlot);
+  };
+
+  // Handle booking confirmation
+  const handleConfirmBooking = () => {
+    if (selectedRoom && selectedTimeSlot) {
+      const newBooking: Booking = {
+        id: generateId(),
+        room: selectedRoom,
+        student_id: "2020123456",
+        student_name: "Иванов Иван",
+        start: selectedTimeSlot.start,
+        end: selectedTimeSlot.end,
+        status: "confirmed",
+        key_issued: false,
+        key_returned: false,
+        access_code: (Math.floor(1000 + Math.random() * 9000)).toString(),
+        notes: ""
+      };
+      
+      setBooking(newBooking);
+      setBookingConfirmed(true);
+      setStep(3);
+    }
+  };
+
+  // Reset booking process
+  const handleNewBooking = () => {
+    setSelectedRoom(null);
+    setSelectedTimeSlot(null);
+    setBookingConfirmed(false);
+    setBooking(null);
+    setStep(1);
+  };
+
   return (
     <PageLayout role="student">
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Бронирование помещения</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Бронирование помещений</h1>
           <p className="text-muted-foreground">
-            Выберите дату, помещение и время для бронирования
+            Выберите удобное время и место для ваших занятий
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Date and Filters */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5 text-primary" />
-                  Выберите дату
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  locale={ru}
-                  className="rounded-md border"
-                />
-                <p className="mt-4 text-sm text-muted-foreground text-center">
-                  {date ? (
-                    `Выбрано: ${format(date, "PPP", { locale: ru })}`
-                  ) : (
-                    "Пожалуйста, выберите дату"
-                  )}
-                </p>
-              </CardContent>
-            </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Процесс бронирования</CardTitle>
+            <CardDescription>
+              Следуйте этим шагам для бронирования помещения
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-8">
+              <div className={`flex items-center gap-2 ${step >= 1 ? "text-primary" : "text-muted-foreground"}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? "bg-primary text-white" : "bg-muted"}`}>1</div>
+                <span>Выбор помещения</span>
+              </div>
+              <div className="hidden md:block w-8 h-0.5 bg-muted"></div>
+              <div className={`flex items-center gap-2 ${step >= 2 ? "text-primary" : "text-muted-foreground"}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? "bg-primary text-white" : "bg-muted"}`}>2</div>
+                <span>Выбор времени</span>
+              </div>
+              <div className="hidden md:block w-8 h-0.5 bg-muted"></div>
+              <div className={`flex items-center gap-2 ${step >= 3 ? "text-primary" : "text-muted-foreground"}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? "bg-primary text-white" : "bg-muted"}`}>3</div>
+                <span>Подтверждение</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
+        {step === 1 && (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-3 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Search className="h-5 w-5 text-muted-foreground" />
+                    <span>Поиск помещений</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Найдите подходящее помещение для вашего мероприятия
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative">
+                    <Input
+                      type="search"
+                      placeholder="Поиск помещений..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-3">
+                {filteredRooms.length > 0 ? (
+                  filteredRooms.map((room) => (
+                    <RoomCard
+                      key={room.id}
+                      room={room}
+                      onSelect={() => handleRoomSelect(room)}
+                    />
+                  ))
+                ) : (
+                  <Card className="p-4 text-center text-muted-foreground">
+                    Нет помещений, соответствующих вашим критериям.
+                  </Card>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Filter className="h-5 w-5 text-muted-foreground" />
+                    <span>Фильтры</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Фильтруйте помещения по различным параметрам
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Дата</h4>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formatDate(date.toISOString())}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={date}
+                          onSelect={(date) => date && setDate(date)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Тип помещения</h4>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">Любой</Badge>
+                      <Badge variant="outline">Лекционная</Badge>
+                      <Badge variant="outline">Компьютерный класс</Badge>
+                      <Badge variant="outline">Семинарская</Badge>
+                      <Badge variant="outline">Лаборатория</Badge>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Вместимость</h4>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">Любая</Badge>
+                      <Badge variant="outline">До 30 человек</Badge>
+                      <Badge variant="outline">30-60 человек</Badge>
+                      <Badge variant="outline">60-100 человек</Badge>
+                      <Badge variant="outline">Более 100 человек</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && selectedRoom && (
+          <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building className="h-5 w-5 text-primary" />
-                  Фильтры
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-5 w-5 text-muted-foreground" />
+                    <span>{selectedRoom.name} - {selectedRoom.title}</span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setStep(1)}>
+                    Изменить помещение
+                  </Button>
                 </CardTitle>
+                <CardDescription>
+                  {selectedRoom.building} · Вместимость: {selectedRoom.capacity} чел.
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="building-select">
-                      Корпус
-                    </label>
-                    <Select value={building} onValueChange={setBuilding}>
-                      <SelectTrigger id="building-select">
-                        <SelectValue placeholder="Выберите корпус" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Все корпуса</SelectItem>
-                        <SelectItem value="Главный корпус">Главный корпус</SelectItem>
-                        <SelectItem value="Библиотека">Библиотека</SelectItem>
-                        <SelectItem value="Лабораторный корпус">Лабораторный корпус</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Выберите время</h3>
+                  <div className="space-y-3">
+                    {mockTimeSlots.map((timeSlot) => (
+                      <TimeSlotCard
+                        key={timeSlot.id}
+                        id={timeSlot.id}
+                        start={timeSlot.start}
+                        end={timeSlot.end}
+                        status={timeSlot.status}
+                        selected={selectedTimeSlot?.id === timeSlot.id}
+                        onSelect={() => handleTimeSlotSelect(timeSlot)}
+                      />
+                    ))}
                   </div>
                 </div>
+
+                <div className="pt-4 flex justify-between">
+                  <Button variant="outline" onClick={() => setStep(1)}>
+                    Назад
+                  </Button>
+                  <Button
+                    onClick={handleConfirmBooking}
+                    disabled={!selectedTimeSlot || selectedTimeSlot.status !== "available"}
+                  >
+                    Продолжить
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
+        )}
 
-          {/* Middle Column - Room Selection */}
-          <Card className="h-min">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                {selectedRoom ? "Выбрано помещение" : "Выберите помещение"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedRoom ? (
-                <>
-                  <RoomCard 
-                    room={selectedRoomData!} 
-                    onSelect={() => {}}
-                    isSelected={true}
-                  />
+        {step === 3 && booking && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <span>Информация о бронировании</span>
+                </CardTitle>
+                <CardDescription>
+                  Ваше бронирование успешно оформлено
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Помещение</h3>
+                    <p className="text-lg font-medium">{booking.room.name} - {booking.room.title}</p>
+                    <p className="text-sm text-muted-foreground">{booking.room.building}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Дата и время</h3>
+                    <p className="text-lg font-medium">{formatDate(booking.start)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatTime(booking.start)} - {formatTime(booking.end)} ({formatDuration(getTimeDifferenceInMinutes(booking.start, booking.end))})
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Студент</h3>
+                    <p className="text-lg font-medium">{booking.student_name}</p>
+                    <p className="text-sm text-muted-foreground">ID: {booking.student_id}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Код доступа</h3>
+                    <p className="text-lg font-medium">{booking.access_code}</p>
+                    <p className="text-sm text-muted-foreground">Предъявите QR-код при входе</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center pt-4">
                   <Button
                     variant="outline"
-                    className="w-full mt-4"
-                    onClick={() => setSelectedRoom(null)}
+                    className="mb-4"
+                    onClick={() => setShowQRCode(true)}
                   >
-                    Изменить выбор
+                    Показать QR-код
                   </Button>
-                </>
-              ) : (
-                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                  {filteredRooms.length > 0 ? (
-                    filteredRooms.map(room => (
-                      <RoomCard 
-                        key={room.id} 
-                        room={room} 
-                        onSelect={() => handleRoomSelect(room.id)}
-                        isSelected={room.id === selectedRoom}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-center py-8 text-muted-foreground">
-                      Нет доступных помещений для выбранных параметров
-                    </p>
-                  )}
+                  <Button onClick={handleNewBooking}>
+                    Новое бронирование
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-          {/* Right Column - Time Slots Selection */}
-          <Card className="h-min">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                {selectedRoom ? "Выберите время" : "Сначала выберите помещение"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedRoom ? (
-                <div className="space-y-3">
-                  {mockTimeSlots.map(slot => (
-                    <TimeSlotCard
-                      key={slot.id}
-                      slot={slot}
-                      onSelect={() => handleTimeSlotSelect(slot.id)}
-                      isSelected={slot.id === selectedTimeSlot}
-                    />
-                  ))}
-                  {selectedTimeSlot && (
-                    <Button
-                      className="w-full mt-4"
-                      onClick={handleBookingRequest}
-                    >
-                      Забронировать
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="py-8 text-center text-muted-foreground">
-                  Для просмотра доступного времени, сначала выберите помещение
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Booking Trends - Optional Bottom Section */}
-        <Tabs defaultValue="popular">
-          <TabsList className="mb-4">
-            <TabsTrigger value="popular">Популярные помещения</TabsTrigger>
-            <TabsTrigger value="recommended">Рекомендуемые</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="popular">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {mockRooms.slice(0, 4).map(room => (
-                <Card key={room.id} className="card-hover">
-                  <CardContent className="p-4">
-                    <h3 className="font-medium">{room.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {room.building}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {room.title}
-                    </p>
-                    <div className="flex justify-between mt-3 items-center">
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                        98% занятость
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="recommended">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {mockRooms.slice(2, 4).concat(mockRooms.slice(0, 2)).map(room => (
-                <Card key={room.id} className="card-hover">
-                  <CardContent className="p-4">
-                    <h3 className="font-medium">{room.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {room.building}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {room.title}
-                    </p>
-                    <div className="flex justify-between mt-3 items-center">
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                        Рекомендовано
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* Confirmation Dialog */}
-      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Подтверждение бронирования</DialogTitle>
-            <DialogDescription>
-              Пожалуйста, проверьте данные бронирования
-            </DialogDescription>
-          </DialogHeader>
-          {selectedRoom && selectedTimeSlot && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Помещение</p>
-                  <p className="text-base">{selectedRoomData?.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Корпус</p>
-                  <p className="text-base">{selectedRoomData?.building}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Дата</p>
-                  <p className="text-base">{date && format(date, "PPP", { locale: ru })}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Время</p>
-                  <p className="text-base">
-                    {mockTimeSlots.find(slot => slot.id === selectedTimeSlot)?.start} - 
-                    {mockTimeSlots.find(slot => slot.id === selectedTimeSlot)?.end}
-                  </p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Нажимая "Подтвердить", вы соглашаетесь с правилами бронирования помещений.
-              </p>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button onClick={handleConfirmBooking} className="flex items-center gap-2">
-              <Check size={16} />
-              Подтвердить
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Success Dialog */}
-      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Бронирование успешно</DialogTitle>
-            <DialogDescription>
-              Ваше бронирование успешно создано
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-green-100">
-                <UserCheck className="h-8 w-8 text-green-600" />
-              </div>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-medium">Помещение забронировано</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Для доступа в помещение используйте QR-код или код доступа
-              </p>
-            </div>
-            <div className="flex justify-center pt-2">
+        <Dialog open={showQRCode} onOpenChange={setShowQRCode}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Код доступа к помещению</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center py-4">
               <QRCodeDisplay 
-                bookingId={123}
-                roomName={selectedRoomData?.name || ""}
-                accessCode={bookingCode}
-                startTime={mockTimeSlots.find(slot => slot.id === selectedTimeSlot)?.start || ""}
-                endTime={mockTimeSlots.find(slot => slot.id === selectedTimeSlot)?.end || ""}
+                code={booking?.access_code || ""}
+                roomName={booking?.room.name || ""}
+                date={booking ? formatDate(booking.start) : ""}
+                time={booking ? `${formatTime(booking.start)} - ${formatTime(booking.end)}` : ""}
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => window.location.href = "/student/dashboard"} className="w-full">
-              Перейти к бронированиям
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button onClick={() => setShowQRCode(false)}>
+                Закрыть
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </PageLayout>
   );
 };
