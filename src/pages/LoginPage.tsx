@@ -1,126 +1,149 @@
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { KeyRound, LogIn } from 'lucide-react';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNavigate } from "react-router-dom";
+import { User, KeyRound, Shield } from "lucide-react";
 
-const LoginPage: React.FC = () => {
-  const { login, isLoading } = useAuth();
+const LoginPage = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("student");
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     
-    if (!email || !password) {
-      setError('Пожалуйста, заполните все поля');
-      return;
-    }
-    
-    const success = await login(email, password);
-    
-    if (success) {
-      // Navigate based on role
-      const userRole = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!).role : null;
-      
-      switch (userRole) {
-        case 'student':
-          navigate('/student');
-          break;
-        case 'guard':
-          navigate('/guard');
-          break;
-        case 'admin':
-          navigate('/admin');
-          break;
-        default:
-          navigate('/');
-      }
+    // Simple mock login logic based on role
+    switch (role) {
+      case "student":
+        navigate("/student/dashboard");
+        break;
+      case "guard":
+        navigate("/guard/dashboard");
+        break;
+      case "admin":
+        navigate("/admin/dashboard");
+        break;
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md animate-scale-in">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Campus Room Reserve</h1>
-          <p className="text-slate-600">Система бронирования комнат университета</p>
-        </div>
-        
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle>Вход в систему</CardTitle>
-            <CardDescription>
-              Введите ваши учетные данные для входа
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Пароль</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              {error && (
-                <div className="text-sm text-red-500">{error}</div>
-              )}
-              
-              <div className="text-sm text-slate-500">
-                <p>Для демонстрации используйте:</p>
-                <ul className="list-disc pl-5 mt-1">
-                  <li><strong>Студент:</strong> ivan@example.com</li>
-                  <li><strong>Охранник:</strong> sergey@example.com</li>
-                  <li><strong>Админ:</strong> elena@example.com</li>
-                  <li>Пароль для всех: <strong>password</strong></li>
-                </ul>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <span className="flex items-center">
-                    <KeyRound className="mr-2 h-4 w-4 animate-pulse" />
-                    Вход...
-                  </span>
-                ) : (
-                  <span className="flex items-center">
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Войти
-                  </span>
-                )}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-secondary/30 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold text-primary">UniBooker</CardTitle>
+          <CardDescription>Войдите в систему бронирования помещений</CardDescription>
+        </CardHeader>
+        <Tabs defaultValue="student" onValueChange={setRole} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="student" className="flex items-center gap-2">
+              <User size={16} />
+              <span className="hidden sm:inline">Студент</span>
+            </TabsTrigger>
+            <TabsTrigger value="guard" className="flex items-center gap-2">
+              <KeyRound size={16} />
+              <span className="hidden sm:inline">Охранник</span>
+            </TabsTrigger>
+            <TabsTrigger value="admin" className="flex items-center gap-2">
+              <Shield size={16} />
+              <span className="hidden sm:inline">Админ</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="student">
+            <form onSubmit={handleLogin}>
+              <CardContent className="space-y-4 pt-6">
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Пароль"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="w-full">
+                  Войти как студент
+                </Button>
+              </CardFooter>
+            </form>
+          </TabsContent>
+          
+          <TabsContent value="guard">
+            <form onSubmit={handleLogin}>
+              <CardContent className="space-y-4 pt-6">
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Пароль"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="w-full">
+                  Войти как охранник
+                </Button>
+              </CardFooter>
+            </form>
+          </TabsContent>
+          
+          <TabsContent value="admin">
+            <form onSubmit={handleLogin}>
+              <CardContent className="space-y-4 pt-6">
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Пароль"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="w-full">
+                  Войти как администратор
+                </Button>
+              </CardFooter>
+            </form>
+          </TabsContent>
+        </Tabs>
+      </Card>
     </div>
   );
 };
