@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,10 +8,10 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { CalendarIcon, Clock, Building, MapPin, UserCheck, Check } from "lucide-react";
 import PageLayout from "@/components/PageLayout";
-import { RoomCard } from "@/components/RoomCard";
-import { TimeSlotCard } from "@/components/TimeSlotCard";
+import RoomCard from "@/components/RoomCard";
+import TimeSlotCard from "@/components/TimeSlotCard";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { QRCodeDisplay } from "@/components/QRCodeDisplay";
+import QRCodeDisplay from "@/components/QRCodeDisplay";
 
 // Mock rooms data
 const mockRooms = [

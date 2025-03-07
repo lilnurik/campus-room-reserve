@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Clock, KeyRound, Search, CheckCircle, AlertTriangle, Filter } from "lucide-react";
 import PageLayout from "@/components/PageLayout";
-import { StatusBadge } from "@/components/StatusBadge";
+import StatusBadge from "@/components/StatusBadge";
 import { formatTime, formatDate } from "@/lib/utils";
 
 // Mock bookings data

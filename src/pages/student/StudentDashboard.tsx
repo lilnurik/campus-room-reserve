@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Clock, CalendarCheck, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
-import { BookingCard } from "@/components/BookingCard";
+import BookingCard from "@/components/BookingCard";
 
 // Mock data
 const mockBookings = [

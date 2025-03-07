@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +14,7 @@ import {
   BarChart3
 } from "lucide-react";
 import PageLayout from "@/components/PageLayout";
-import { StatusBadge } from "@/components/StatusBadge";
+import StatusBadge from "@/components/StatusBadge";
 import { formatDate } from "@/lib/utils";
 
 const AdminDashboard = () => {
@@ -514,3 +513,4 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
