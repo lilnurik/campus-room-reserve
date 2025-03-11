@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
+import { bookingsApi, roomsApi } from '@/services/api';
 
 // Types for bookings
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'overdue';
@@ -58,6 +59,8 @@ interface BookingContextType {
   updateRoom: (id: string, updates: Partial<Room>) => Promise<boolean>;
   deleteRoom: (id: string) => Promise<boolean>;
   isLoading: boolean;
+  refreshBookings: () => Promise<void>;
+  refreshRooms: () => Promise<void>;
 }
 
 // Mock data
@@ -234,6 +237,43 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [rooms, setRooms] = useState<Room[]>(MOCK_ROOMS);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  const refreshRooms = async () => {
+    setIsLoading(true);
+    try {
+      const response = await roomsApi.getAll();
+      if (response.success && response.data) {
+        setRooms(response.data);
+      } else {
+        console.error("Failed to fetch rooms:", response.error);
+      }
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const refreshBookings = async () => {
+    setIsLoading(true);
+    try {
+      const response = await bookingsApi.getAll();
+      if (response.success && response.data) {
+        setBookings(response.data);
+      } else {
+        console.error("Failed to fetch bookings:", response.error);
+      }
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshRooms();
+    refreshBookings();
+  }, []);
+
   const getTimeSlots = (roomId: string, date: string): TimeSlot[] => {
     const slots: TimeSlot[] = [];
     const roomBookings = bookings.filter(b => 
@@ -289,257 +329,300 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const createBooking = async (bookingData: Partial<Booking>): Promise<Booking | null> => {
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (!user || user.role !== 'student') {
-      toast.error('Только студенты могут создавать бронирования');
-      setIsLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!user || user.role !== 'student') {
+        toast.error('Только студенты могут создавать бронирования');
+        setIsLoading(false);
+        return null;
+      }
+      
+      const roomSlots = getTimeSlots(bookingData.room || '', bookingData.start?.split('T')[0] || '');
+      const startTime = new Date(bookingData.start || '').getTime();
+      const endTime = new Date(bookingData.end || '').getTime();
+      
+      const conflictingSlots = roomSlots.filter(slot => {
+        const slotStart = new Date(slot.start).getTime();
+        const slotEnd = new Date(slot.end).getTime();
+        return (
+          (startTime >= slotStart && startTime < slotEnd) || 
+          (endTime > slotStart && endTime <= slotEnd) ||
+          (startTime <= slotStart && endTime >= slotEnd)
+        ) && slot.status !== 'available';
+      });
+      
+      if (conflictingSlots.length > 0) {
+        toast.error('Выбранное время недоступно для бронирования');
+        setIsLoading(false);
+        return null;
+      }
+      
+      const newBooking: Booking = {
+        id: Math.max(...bookings.map(b => b.id), 0) + 1,
+        room: bookingData.room || '',
+        student_id: user.id,
+        student_name: user.name,
+        start: bookingData.start || '',
+        end: bookingData.end || '',
+        status: 'pending',
+        key_issued: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        access_code: Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(1000 + Math.random() * 9000)
+      };
+      
+      setBookings([...bookings, newBooking]);
+      toast.success('Запрос на бронирование отправлен');
+      return newBooking;
+    } catch (error) {
+      console.error("Error creating booking:", error);
+      toast.error('Произошла ошибка при создании бронирования');
       return null;
-    }
-    
-    const roomSlots = getTimeSlots(bookingData.room || '', bookingData.start?.split('T')[0] || '');
-    const startTime = new Date(bookingData.start || '').getTime();
-    const endTime = new Date(bookingData.end || '').getTime();
-    
-    const conflictingSlots = roomSlots.filter(slot => {
-      const slotStart = new Date(slot.start).getTime();
-      const slotEnd = new Date(slot.end).getTime();
-      return (
-        (startTime >= slotStart && startTime < slotEnd) || 
-        (endTime > slotStart && endTime <= slotEnd) ||
-        (startTime <= slotStart && endTime >= slotEnd)
-      ) && slot.status !== 'available';
-    });
-    
-    if (conflictingSlots.length > 0) {
-      toast.error('Выбранное время недоступно для бронирования');
+    } finally {
       setIsLoading(false);
-      return null;
     }
-    
-    const newBooking: Booking = {
-      id: Math.max(...bookings.map(b => b.id), 0) + 1,
-      room: bookingData.room || '',
-      student_id: user.id,
-      student_name: user.name,
-      start: bookingData.start || '',
-      end: bookingData.end || '',
-      status: 'pending',
-      key_issued: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      access_code: Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(1000 + Math.random() * 9000)
-    };
-    
-    setBookings([...bookings, newBooking]);
-    toast.success('Запрос на бронирование отправлен');
-    setIsLoading(false);
-    return newBooking;
   };
 
   const updateBooking = async (id: number, updates: Partial<Booking>): Promise<boolean> => {
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const bookingIndex = bookings.findIndex(b => b.id === id);
-    
-    if (bookingIndex === -1) {
-      toast.error('Бронирование не найдено');
-      setIsLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const bookingIndex = bookings.findIndex(b => b.id === id);
+      
+      if (bookingIndex === -1) {
+        toast.error('Бронирование не найдено');
+        return false;
+      }
+      
+      const updatedBookings = [...bookings];
+      updatedBookings[bookingIndex] = {
+        ...updatedBookings[bookingIndex],
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+      
+      setBookings(updatedBookings);
+      toast.success('Бронирование обновлено');
+      return true;
+    } catch (error) {
+      console.error("Error updating booking:", error);
+      toast.error('Произошла ошибка при обновлении бронирования');
       return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    const updatedBookings = [...bookings];
-    updatedBookings[bookingIndex] = {
-      ...updatedBookings[bookingIndex],
-      ...updates,
-      updated_at: new Date().toISOString()
-    };
-    
-    setBookings(updatedBookings);
-    toast.success('Бронирование обновлено');
-    setIsLoading(false);
-    return true;
   };
 
   const cancelBooking = async (id: number): Promise<boolean> => {
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const bookingIndex = bookings.findIndex(b => b.id === id);
-    
-    if (bookingIndex === -1) {
-      toast.error('Бронирование не найдено');
-      setIsLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const bookingIndex = bookings.findIndex(b => b.id === id);
+      
+      if (bookingIndex === -1) {
+        toast.error('Бронирование не найдено');
+        return false;
+      }
+      
+      if (['completed', 'cancelled'].includes(bookings[bookingIndex].status)) {
+        toast.error('Невозможно отменить это бронирование');
+        return false;
+      }
+      
+      if (bookings[bookingIndex].key_issued && !bookings[bookingIndex].key_returned) {
+        toast.error('Невозможно отменить бронирование, так как ключ уже выдан');
+        return false;
+      }
+      
+      const updatedBookings = [...bookings];
+      updatedBookings[bookingIndex] = {
+        ...updatedBookings[bookingIndex],
+        status: 'cancelled',
+        updated_at: new Date().toISOString()
+      };
+      
+      setBookings(updatedBookings);
+      toast.success('Бронирование отменено');
+      return true;
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      toast.error('Произошла ошибка при отмене бронирования');
       return false;
-    }
-    
-    if (['completed', 'cancelled'].includes(bookings[bookingIndex].status)) {
-      toast.error('Невозможно отменить это бронирование');
+    } finally {
       setIsLoading(false);
-      return false;
     }
-    
-    if (bookings[bookingIndex].key_issued && !bookings[bookingIndex].key_returned) {
-      toast.error('Невозможно отменить бронирование, так как ключ уже выдан');
-      setIsLoading(false);
-      return false;
-    }
-    
-    const updatedBookings = [...bookings];
-    updatedBookings[bookingIndex] = {
-      ...updatedBookings[bookingIndex],
-      status: 'cancelled',
-      updated_at: new Date().toISOString()
-    };
-    
-    setBookings(updatedBookings);
-    toast.success('Бронирование отменено');
-    setIsLoading(false);
-    return true;
   };
 
   const issueKey = async (bookingId: number): Promise<boolean> => {
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
-    
-    if (bookingIndex === -1) {
-      toast.error('Бронирование не найдено');
-      setIsLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+      
+      if (bookingIndex === -1) {
+        toast.error('Бронирование не найдено');
+        return false;
+      }
+      
+      if (bookings[bookingIndex].status !== 'confirmed') {
+        toast.error('Ключ можно выдать только для подтвержденного бронирования');
+        return false;
+      }
+      
+      if (bookings[bookingIndex].key_issued) {
+        toast.error('Ключ уже выдан');
+        return false;
+      }
+      
+      const updatedBookings = [...bookings];
+      updatedBookings[bookingIndex] = {
+        ...updatedBookings[bookingIndex],
+        key_issued: true,
+        updated_at: new Date().toISOString()
+      };
+      
+      setBookings(updatedBookings);
+      toast.success('Ключ выдан');
+      return true;
+    } catch (error) {
+      console.error("Error issuing key:", error);
+      toast.error('Произошла ошибка при выдаче ключа');
       return false;
-    }
-    
-    if (bookings[bookingIndex].status !== 'confirmed') {
-      toast.error('Ключ можно выдать только для подтвержденного бронирования');
+    } finally {
       setIsLoading(false);
-      return false;
     }
-    
-    if (bookings[bookingIndex].key_issued) {
-      toast.error('Ключ уже выдан');
-      setIsLoading(false);
-      return false;
-    }
-    
-    const updatedBookings = [...bookings];
-    updatedBookings[bookingIndex] = {
-      ...updatedBookings[bookingIndex],
-      key_issued: true,
-      updated_at: new Date().toISOString()
-    };
-    
-    setBookings(updatedBookings);
-    toast.success('Ключ выдан');
-    setIsLoading(false);
-    return true;
   };
 
   const returnKey = async (bookingId: number): Promise<boolean> => {
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
-    
-    if (bookingIndex === -1) {
-      toast.error('Бронирование не найдено');
-      setIsLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+      
+      if (bookingIndex === -1) {
+        toast.error('Бронирование не найдено');
+        return false;
+      }
+      
+      if (!bookings[bookingIndex].key_issued) {
+        toast.error('Ключ не был выдан');
+        return false;
+      }
+      
+      if (bookings[bookingIndex].key_returned) {
+        toast.error('Ключ уже возвращен');
+        return false;
+      }
+      
+      const updatedBookings = [...bookings];
+      updatedBookings[bookingIndex] = {
+        ...updatedBookings[bookingIndex],
+        key_returned: true,
+        status: 'completed',
+        updated_at: new Date().toISOString()
+      };
+      
+      setBookings(updatedBookings);
+      toast.success('Ключ возвращен');
+      return true;
+    } catch (error) {
+      console.error("Error returning key:", error);
+      toast.error('Произошла ошибка при возврате ключа');
       return false;
-    }
-    
-    if (!bookings[bookingIndex].key_issued) {
-      toast.error('Ключ не был выдан');
+    } finally {
       setIsLoading(false);
-      return false;
     }
-    
-    if (bookings[bookingIndex].key_returned) {
-      toast.error('Ключ уже возвращен');
-      setIsLoading(false);
-      return false;
-    }
-    
-    const updatedBookings = [...bookings];
-    updatedBookings[bookingIndex] = {
-      ...updatedBookings[bookingIndex],
-      key_returned: true,
-      status: 'completed',
-      updated_at: new Date().toISOString()
-    };
-    
-    setBookings(updatedBookings);
-    toast.success('Ключ возвращен');
-    setIsLoading(false);
-    return true;
   };
 
   const addRoom = async (room: Room): Promise<boolean> => {
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    if (rooms.some(r => r.id === room.id)) {
-      toast.error('Помещение с таким ID уже существует');
-      setIsLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      if (rooms.some(r => r.id === room.id)) {
+        toast.error('Помещение с таким ID уже существует');
+        return false;
+      }
+      
+      setRooms([...rooms, room]);
+      toast.success('Помещение добавлено');
+      return true;
+    } catch (error) {
+      console.error("Error adding room:", error);
+      toast.error('Произошла ошибка при добавлении помещения');
       return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    setRooms([...rooms, room]);
-    toast.success('Помещение добавлено');
-    setIsLoading(false);
-    return true;
   };
 
   const updateRoom = async (id: string, updates: Partial<Room>): Promise<boolean> => {
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const roomIndex = rooms.findIndex(r => r.id === id);
-    
-    if (roomIndex === -1) {
-      toast.error('Помещение не найдено');
-      setIsLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const roomIndex = rooms.findIndex(r => r.id === id);
+      
+      if (roomIndex === -1) {
+        toast.error('Помещение не найдено');
+        return false;
+      }
+      
+      const updatedRooms = [...rooms];
+      updatedRooms[roomIndex] = {
+        ...updatedRooms[roomIndex],
+        ...updates
+      };
+      
+      setRooms(updatedRooms);
+      toast.success('Информация о помещении обновлена');
+      return true;
+    } catch (error) {
+      console.error("Error updating room:", error);
+      toast.error('Произошла ошибка при обновлении информации о помещении');
       return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    const updatedRooms = [...rooms];
-    updatedRooms[roomIndex] = {
-      ...updatedRooms[roomIndex],
-      ...updates
-    };
-    
-    setRooms(updatedRooms);
-    toast.success('Информация о помещении обновлена');
-    setIsLoading(false);
-    return true;
   };
 
   const deleteRoom = async (id: string): Promise<boolean> => {
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const hasBookings = bookings.some(b => 
-      b.room === id && 
-      ['pending', 'confirmed'].includes(b.status)
-    );
-    
-    if (hasBookings) {
-      toast.error('Невозможно удалить помещение с активными бронированиями');
-      setIsLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const hasBookings = bookings.some(b => 
+        b.room === id && 
+        ['pending', 'confirmed'].includes(b.status)
+      );
+      
+      if (hasBookings) {
+        toast.error('Невозможно удалить помещение с активными бронированиями');
+        return false;
+      }
+      
+      setRooms(rooms.filter(r => r.id !== id));
+      toast.success('Помещение удалено');
+      return true;
+    } catch (error) {
+      console.error("Error deleting room:", error);
+      toast.error('Произошла ошибка при удалении помещения');
       return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    setRooms(rooms.filter(r => r.id !== id));
-    toast.success('Помещение удалено');
-    setIsLoading(false);
-    return true;
   };
 
   return (
@@ -556,7 +639,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       addRoom,
       updateRoom,
       deleteRoom,
-      isLoading
+      isLoading,
+      refreshBookings,
+      refreshRooms
     }}>
       {children}
     </BookingContext.Provider>
