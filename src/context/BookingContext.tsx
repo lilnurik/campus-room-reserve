@@ -50,6 +50,9 @@ interface BookingContextType {
   cancelBooking: (id: number) => Promise<boolean>;
   issueKey: (bookingId: number) => Promise<boolean>;
   returnKey: (bookingId: number) => Promise<boolean>;
+  addRoom: (room: Room) => Promise<boolean>;
+  updateRoom: (id: string, updates: Partial<Room>) => Promise<boolean>;
+  deleteRoom: (id: string) => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -190,7 +193,7 @@ const BookingContext = createContext<BookingContextType | undefined>(undefined);
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>(generateMockBookings());
-  const [rooms] = useState<Room[]>(MOCK_ROOMS);
+  const [rooms, setRooms] = useState<Room[]>(MOCK_ROOMS);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const getTimeSlots = (roomId: string, date: string): TimeSlot[] => {
@@ -454,6 +457,76 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return true;
   };
 
+  // Функции для управления комнатами
+  const addRoom = async (room: Room): Promise<boolean> => {
+    setIsLoading(true);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Проверка на существующий ID комнаты
+    if (rooms.some(r => r.id === room.id)) {
+      toast.error('Комната с таким ID уже существует');
+      setIsLoading(false);
+      return false;
+    }
+    
+    setRooms([...rooms, room]);
+    toast.success('Комната добавлена');
+    setIsLoading(false);
+    return true;
+  };
+
+  const updateRoom = async (id: string, updates: Partial<Room>): Promise<boolean> => {
+    setIsLoading(true);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    const roomIndex = rooms.findIndex(r => r.id === id);
+    
+    if (roomIndex === -1) {
+      toast.error('Комната не найдена');
+      setIsLoading(false);
+      return false;
+    }
+    
+    const updatedRooms = [...rooms];
+    updatedRooms[roomIndex] = {
+      ...updatedRooms[roomIndex],
+      ...updates
+    };
+    
+    setRooms(updatedRooms);
+    toast.success('Информация о комнате обновлена');
+    setIsLoading(false);
+    return true;
+  };
+
+  const deleteRoom = async (id: string): Promise<boolean> => {
+    setIsLoading(true);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Проверка на существующие бронирования для этой комнаты
+    const hasBookings = bookings.some(b => 
+      b.room === id && 
+      ['pending', 'confirmed'].includes(b.status)
+    );
+    
+    if (hasBookings) {
+      toast.error('Невозможно удалить комнату с активными бронированиями');
+      setIsLoading(false);
+      return false;
+    }
+    
+    setRooms(rooms.filter(r => r.id !== id));
+    toast.success('Комната удалена');
+    setIsLoading(false);
+    return true;
+  };
+
   return (
     <BookingContext.Provider value={{
       bookings,
@@ -465,6 +538,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       cancelBooking,
       issueKey,
       returnKey,
+      addRoom,
+      updateRoom,
+      deleteRoom,
       isLoading
     }}>
       {children}

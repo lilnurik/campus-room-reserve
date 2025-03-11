@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, User, Calendar, Clock, History, Settings } from "lucide-react";
+import { LogOut, Menu, User, Calendar, Clock, History, Settings, Home, Users, Building } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-mobile";
 
@@ -34,9 +34,10 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
         ];
       case "admin":
         return [
-          { label: "Дашборд", href: "/admin/dashboard", icon: <User size={18} /> },
+          { label: "Дашборд", href: "/admin/dashboard", icon: <Home size={18} /> },
           { label: "Управление бронями", href: "/admin/bookings", icon: <Calendar size={18} /> },
-          { label: "Пользователи", href: "/admin/users", icon: <Clock size={18} /> },
+          { label: "Аудитории", href: "/admin/rooms", icon: <Building size={18} /> },
+          { label: "Пользователи", href: "/admin/users", icon: <Users size={18} /> },
           { label: "Настройки", href: "/admin/settings", icon: <Settings size={18} /> },
         ];
       default:
