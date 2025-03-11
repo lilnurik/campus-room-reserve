@@ -9,8 +9,17 @@ import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import { AuthProvider } from "./context/AuthContext";
 import StudentDashboard from "./pages/student/StudentDashboard";
+import BookingPage from "./pages/student/BookingPage";
+import HistoryPage from "./pages/student/HistoryPage";
+import ProfilePage from "./pages/student/ProfilePage";
 import GuardDashboard from "./pages/guard/GuardDashboard";
+import GuardProfilePage from "./pages/guard/ProfilePage";
+import BookingsPage from "./pages/guard/BookingsPage";
+import KeysPage from "./pages/guard/KeysPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminBookingsPage from "./pages/admin/BookingsPage";
+import UsersPage from "./pages/admin/UsersPage";
+import SettingsPage from "./pages/admin/SettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -24,9 +33,25 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<LoginPage />} />
+            
+            {/* Student Routes */}
             <Route path="/student/dashboard" element={<StudentDashboard />} />
+            <Route path="/student/booking" element={<BookingPage />} />
+            <Route path="/student/history" element={<HistoryPage />} />
+            <Route path="/student/profile" element={<ProfilePage />} />
+            
+            {/* Guard Routes */}
             <Route path="/guard/dashboard" element={<GuardDashboard />} />
+            <Route path="/guard/profile" element={<GuardProfilePage />} />
+            <Route path="/guard/bookings" element={<BookingsPage />} />
+            <Route path="/guard/keys" element={<KeysPage />} />
+            
+            {/* Admin Routes */}
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/bookings" element={<AdminBookingsPage />} />
+            <Route path="/admin/users" element={<UsersPage />} />
+            <Route path="/admin/settings" element={<SettingsPage />} />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
