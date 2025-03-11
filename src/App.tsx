@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import { AuthProvider } from "./context/AuthContext";
+import { BookingProvider } from "./context/BookingContext";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import BookingPage from "./pages/student/BookingPage";
 import HistoryPage from "./pages/student/HistoryPage";
@@ -28,36 +29,38 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<LoginPage />} />
-            
-            {/* Student Routes */}
-            <Route path="/student/dashboard" element={<StudentDashboard />} />
-            <Route path="/student/booking" element={<BookingPage />} />
-            <Route path="/student/history" element={<HistoryPage />} />
-            <Route path="/student/profile" element={<ProfilePage />} />
-            
-            {/* Guard Routes */}
-            <Route path="/guard/dashboard" element={<GuardDashboard />} />
-            <Route path="/guard/profile" element={<GuardProfilePage />} />
-            <Route path="/guard/bookings" element={<BookingsPage />} />
-            <Route path="/guard/keys" element={<KeysPage />} />
-            
-            {/* Admin Routes */}
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/bookings" element={<AdminBookingsPage />} />
-            <Route path="/admin/users" element={<UsersPage />} />
-            <Route path="/admin/settings" element={<SettingsPage />} />
-            <Route path="/admin/rooms" element={<RoomsPage />} />
-            
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </TooltipProvider>
+        <BookingProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<LoginPage />} />
+              
+              {/* Student Routes */}
+              <Route path="/student/dashboard" element={<StudentDashboard />} />
+              <Route path="/student/booking" element={<BookingPage />} />
+              <Route path="/student/history" element={<HistoryPage />} />
+              <Route path="/student/profile" element={<ProfilePage />} />
+              
+              {/* Guard Routes */}
+              <Route path="/guard/dashboard" element={<GuardDashboard />} />
+              <Route path="/guard/profile" element={<GuardProfilePage />} />
+              <Route path="/guard/bookings" element={<BookingsPage />} />
+              <Route path="/guard/keys" element={<KeysPage />} />
+              
+              {/* Admin Routes */}
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/bookings" element={<AdminBookingsPage />} />
+              <Route path="/admin/users" element={<UsersPage />} />
+              <Route path="/admin/settings" element={<SettingsPage />} />
+              <Route path="/admin/rooms" element={<RoomsPage />} />
+              
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </TooltipProvider>
+        </BookingProvider>
       </AuthProvider>
     </BrowserRouter>
   </QueryClientProvider>

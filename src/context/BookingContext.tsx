@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
@@ -23,14 +22,19 @@ export interface Booking {
   updated_at: string;
 }
 
+export type RoomType = 'lecture' | 'computer_lab' | 'lab' | 'conference' | 'sports' | 'office' | 'library' | 'coworking';
+export type RoomStatus = 'available' | 'unavailable' | 'maintenance';
+
 export interface Room {
   id: string;
   name: string;
   building: string;
   capacity: number;
-  type: string;
+  type: RoomType;
   features: string[];
-  status: 'available' | 'unavailable' | 'maintenance';
+  status: RoomStatus;
+  description?: string;
+  floor?: number;
 }
 
 export interface TimeSlot {
@@ -65,7 +69,8 @@ const MOCK_ROOMS: Room[] = [
     capacity: 100, 
     type: "lecture", 
     features: ["projector", "computer", "whiteboard"], 
-    status: "available" 
+    status: "available",
+    floor: 1 
   },
   { 
     id: "B202", 
@@ -74,7 +79,8 @@ const MOCK_ROOMS: Room[] = [
     capacity: 30, 
     type: "computer_lab", 
     features: ["computers", "whiteboard", "air_conditioning"], 
-    status: "available" 
+    status: "available",
+    floor: 2 
   },
   { 
     id: "C303", 
@@ -83,7 +89,8 @@ const MOCK_ROOMS: Room[] = [
     capacity: 50, 
     type: "conference", 
     features: ["projector", "audio_system", "video_conferencing"], 
-    status: "available" 
+    status: "available",
+    floor: 3 
   },
   { 
     id: "D404", 
@@ -92,7 +99,8 @@ const MOCK_ROOMS: Room[] = [
     capacity: 25, 
     type: "lab", 
     features: ["specialized_equipment", "ventilation", "safety_equipment"], 
-    status: "maintenance" 
+    status: "maintenance",
+    floor: 4 
   },
   { 
     id: "GYM01", 
@@ -101,7 +109,38 @@ const MOCK_ROOMS: Room[] = [
     capacity: 200, 
     type: "sports", 
     features: ["basketball_court", "volleyball_court", "changing_rooms"], 
-    status: "available" 
+    status: "available",
+    floor: 1 
+  },
+  { 
+    id: "LIB01", 
+    name: "Читальный зал", 
+    building: "Библиотека", 
+    capacity: 50, 
+    type: "library", 
+    features: ["quiet_zone", "computers", "bookshelves"], 
+    status: "available",
+    floor: 2 
+  },
+  { 
+    id: "CW001", 
+    name: "Коворкинг", 
+    building: "Студенческий центр", 
+    capacity: 40, 
+    type: "coworking", 
+    features: ["high_speed_internet", "coffee_machine", "lounge_area"], 
+    status: "available",
+    floor: 1 
+  },
+  { 
+    id: "OFF101", 
+    name: "Офисное помещение", 
+    building: "Административный корпус", 
+    capacity: 10, 
+    type: "office", 
+    features: ["air_conditioning", "meeting_table", "printer"], 
+    status: "available",
+    floor: 1 
   }
 ];
 
@@ -179,7 +218,6 @@ const generateMockBookings = (): Booking[] => {
   ] as Booking[];
 };
 
-// Get yesterday's date
 const getYesterday = () => {
   const date = new Date();
   date.setDate(date.getDate() - 1);
@@ -197,7 +235,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const getTimeSlots = (roomId: string, date: string): TimeSlot[] => {
-    // Generate available time slots for the given room and date
     const slots: TimeSlot[] = [];
     const roomBookings = bookings.filter(b => 
       b.room === roomId && 
@@ -205,12 +242,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       (b.status === 'confirmed' || b.status === 'pending')
     );
     
-    // Generate hourly slots from 8:00 to 21:00
     for (let hour = 8; hour < 21; hour++) {
       const start = `${date}T${hour.toString().padStart(2, '0')}:00:00`;
       const end = `${date}T${(hour + 1).toString().padStart(2, '0')}:00:00`;
       
-      // Check if slot overlaps with existing bookings
       const conflictingBooking = roomBookings.find(booking => {
         const bookingStart = new Date(booking.start).getTime();
         const bookingEnd = new Date(booking.end).getTime();
@@ -228,7 +263,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           booking_id: conflictingBooking.id
         });
       } else {
-        // Every third slot is a class for demo purposes
         if (hour % 3 === 0 && hour > 9 && hour < 18) {
           slots.push({
             start,
@@ -255,7 +289,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const createBooking = async (bookingData: Partial<Booking>): Promise<Booking | null> => {
     setIsLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     if (!user || user.role !== 'student') {
@@ -264,7 +297,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return null;
     }
     
-    // Check if the time slot is available
     const roomSlots = getTimeSlots(bookingData.room || '', bookingData.start?.split('T')[0] || '');
     const startTime = new Date(bookingData.start || '').getTime();
     const endTime = new Date(bookingData.end || '').getTime();
@@ -285,7 +317,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return null;
     }
     
-    // Create new booking
     const newBooking: Booking = {
       id: Math.max(...bookings.map(b => b.id), 0) + 1,
       room: bookingData.room || '',
@@ -309,7 +340,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateBooking = async (id: number, updates: Partial<Booking>): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     const bookingIndex = bookings.findIndex(b => b.id === id);
@@ -336,7 +366,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const cancelBooking = async (id: number): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
     const bookingIndex = bookings.findIndex(b => b.id === id);
@@ -347,14 +376,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return false;
     }
     
-    // Check if the booking is already completed or cancelled
     if (['completed', 'cancelled'].includes(bookings[bookingIndex].status)) {
       toast.error('Невозможно отменить это бронирование');
       setIsLoading(false);
       return false;
     }
     
-    // Check if the key is already issued
     if (bookings[bookingIndex].key_issued && !bookings[bookingIndex].key_returned) {
       toast.error('Невозможно отменить бронирование, так как ключ уже выдан');
       setIsLoading(false);
@@ -377,7 +404,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const issueKey = async (bookingId: number): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
     const bookingIndex = bookings.findIndex(b => b.id === bookingId);
@@ -388,14 +414,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return false;
     }
     
-    // Check if the booking is confirmed
     if (bookings[bookingIndex].status !== 'confirmed') {
       toast.error('Ключ можно выдать только для подтвержденного бронирования');
       setIsLoading(false);
       return false;
     }
     
-    // Check if the key is already issued
     if (bookings[bookingIndex].key_issued) {
       toast.error('Ключ уже выдан');
       setIsLoading(false);
@@ -418,7 +442,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const returnKey = async (bookingId: number): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
     const bookingIndex = bookings.findIndex(b => b.id === bookingId);
@@ -429,14 +452,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return false;
     }
     
-    // Check if the key is issued
     if (!bookings[bookingIndex].key_issued) {
       toast.error('Ключ не был выдан');
       setIsLoading(false);
       return false;
     }
     
-    // Check if the key is already returned
     if (bookings[bookingIndex].key_returned) {
       toast.error('Ключ уже возвращен');
       setIsLoading(false);
@@ -457,22 +478,19 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return true;
   };
 
-  // Функции для управления комнатами
   const addRoom = async (room: Room): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Проверка на существующий ID комнаты
     if (rooms.some(r => r.id === room.id)) {
-      toast.error('Комната с таким ID уже существует');
+      toast.error('Помещение с таким ID уже существует');
       setIsLoading(false);
       return false;
     }
     
     setRooms([...rooms, room]);
-    toast.success('Комната добавлена');
+    toast.success('Помещение добавлено');
     setIsLoading(false);
     return true;
   };
@@ -480,13 +498,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateRoom = async (id: string, updates: Partial<Room>): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
     const roomIndex = rooms.findIndex(r => r.id === id);
     
     if (roomIndex === -1) {
-      toast.error('Комната не найдена');
+      toast.error('Помещение не найдено');
       setIsLoading(false);
       return false;
     }
@@ -498,7 +515,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
     
     setRooms(updatedRooms);
-    toast.success('Информация о комнате обновлена');
+    toast.success('Информация о помещении обновлена');
     setIsLoading(false);
     return true;
   };
@@ -506,23 +523,21 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const deleteRoom = async (id: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Проверка на существующие бронирования для этой комнаты
     const hasBookings = bookings.some(b => 
       b.room === id && 
       ['pending', 'confirmed'].includes(b.status)
     );
     
     if (hasBookings) {
-      toast.error('Невозможно удалить комнату с активными бронированиями');
+      toast.error('Невозможно удалить помещение с активными бронированиями');
       setIsLoading(false);
       return false;
     }
     
     setRooms(rooms.filter(r => r.id !== id));
-    toast.success('Комната удалена');
+    toast.success('Помещение удалено');
     setIsLoading(false);
     return true;
   };
