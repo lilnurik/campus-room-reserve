@@ -71,12 +71,31 @@ export interface LoginDto {
   password: string;
 }
 
+export interface RegisterStudentDto {
+  student_id: string; // In format U12345
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
+export interface ValidateStudentIdDto {
+  student_id: string; // In format U12345
+}
+
+export interface ValidateStudentIdResponseDto {
+  exists: boolean;
+  name?: string;
+  department?: string;
+}
+
 export interface LoginResponseDto {
   user: {
     id: number;
     name: string;
     email: string;
     role: string;
+    student_id?: string; // Added for students
   };
   token: string;
 }

@@ -1,4 +1,3 @@
-
 # API Endpoints Documentation
 
 This document provides a comprehensive list of all required API endpoints for the Room Booking System.
@@ -28,7 +27,59 @@ All endpoints should be prefixed with: `/api`
         "id": 1,
         "name": "User Name",
         "email": "user@example.com",
-        "role": "student|guard|admin"
+        "role": "student|guard|admin",
+        "student_id": "U12345" // Only for students
+      },
+      "token": "jwt_token_string"
+    }
+  }
+  ```
+
+### Validate Student ID
+- **URL**: `/auth/validate-student-id`
+- **Method**: `POST`
+- **Request Body**:
+  ```json
+  {
+    "student_id": "U12345"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "exists": true,
+      "name": "Student Name", // Optional, may be returned if available
+      "department": "Department Name" // Optional, may be returned if available
+    }
+  }
+  ```
+
+### Register Student
+- **URL**: `/auth/register/student`
+- **Method**: `POST`
+- **Request Body**:
+  ```json
+  {
+    "student_id": "U12345",
+    "name": "Student Name",
+    "email": "student@example.com",
+    "password": "password123",
+    "phone": "1234567890" // Optional
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "user": {
+        "id": 1,
+        "name": "Student Name",
+        "email": "student@example.com",
+        "role": "student",
+        "student_id": "U12345"
       },
       "token": "jwt_token_string"
     }
@@ -58,7 +109,8 @@ All endpoints should be prefixed with: `/api`
       "id": 1,
       "name": "User Name",
       "email": "user@example.com",
-      "role": "student|guard|admin"
+      "role": "student|guard|admin",
+      "student_id": "U12345" // Only for students
     }
   }
   ```

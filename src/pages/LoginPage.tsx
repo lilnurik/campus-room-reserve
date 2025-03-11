@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { User, KeyRound, Shield } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -21,9 +22,9 @@ const LoginPage = () => {
     setIsLoading(true);
     
     try {
-      const success = await login(email, password);
-      if (success) {
-        // Navigation is handled in the AuthContext after successful login
+      const result = await login(email, password);
+      if (!result.success) {
+        toast.error(result.error || "Ошибка при входе");
       }
     } finally {
       setIsLoading(false);
@@ -96,10 +97,17 @@ const LoginPage = () => {
                   />
                 </div>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex flex-col gap-4">
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Вход..." : "Войти как студент"}
                 </Button>
+                
+                <div className="text-sm text-center">
+                  Новый студент?{" "}
+                  <Link to="/register" className="text-primary hover:underline">
+                    Зарегистрироваться
+                  </Link>
+                </div>
               </CardFooter>
             </form>
           </TabsContent>

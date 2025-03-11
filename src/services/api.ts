@@ -1,4 +1,3 @@
-
 import { 
   ApiResponse, 
   RoomCreateDto, 
@@ -8,7 +7,10 @@ import {
   UserCreateDto,
   UserUpdateDto,
   LoginDto,
-  LoginResponseDto
+  LoginResponseDto,
+  RegisterStudentDto,
+  ValidateStudentIdDto,
+  ValidateStudentIdResponseDto
 } from "@/types/api";
 import { Booking, Room } from "@/context/BookingContext";
 
@@ -74,7 +76,13 @@ export const authApi = {
     fetchWithAuth<void>('/auth/logout', 'POST'),
   
   getCurrentUser: () => 
-    fetchWithAuth<LoginResponseDto['user']>('/auth/me')
+    fetchWithAuth<LoginResponseDto['user']>('/auth/me'),
+    
+  registerStudent: (data: RegisterStudentDto) =>
+    fetchWithAuth<LoginResponseDto>('/auth/register/student', 'POST', data),
+    
+  validateStudentId: (data: ValidateStudentIdDto) =>
+    fetchWithAuth<ValidateStudentIdResponseDto>('/auth/validate-student-id', 'POST', data)
 };
 
 // Rooms API
