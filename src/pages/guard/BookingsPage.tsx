@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Clock, DoorOpen, Search, User, X, Loader2 } from "lucide-react";
+import { Check, Clock, DoorOpen, Search, User, X, Loader2, KeyRound } from "lucide-react";
 import { useBooking } from "@/context/BookingContext";
 import { formatDistanceToNow, parseISO, isBefore, isAfter } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -20,13 +19,14 @@ const BookingsPage = () => {
   const [activeBookingId, setActiveBookingId] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [isCheckingBooking, setIsCheckingBooking] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [isVerifyingDialog, setIsVerifyingDialog] = useState(false);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   
-  // Load bookings on initial render
   useEffect(() => {
     refreshBookings();
   }, [refreshBookings]);
 
-  // Filter bookings based on search term and status
   const filterBookings = (status: string) => {
     const now = new Date();
     
@@ -63,13 +63,11 @@ const BookingsPage = () => {
   const upcomingBookings = filterBookings('upcoming');
   const pendingBookings = filterBookings('pending');
 
-  // Function to get room name by ID
   const getRoomName = (roomId: string) => {
     const room = rooms.find(r => r.id === roomId);
     return room ? room.name : roomId;
   };
 
-  // Function to get time remaining or time until start
   const getTimeInfo = (booking: typeof bookings[0]) => {
     const now = new Date();
     const start = parseISO(booking.start);
@@ -82,7 +80,12 @@ const BookingsPage = () => {
     }
   };
 
-  // Function to handle booking verification (key issuance/return)
+  const openVerifyDialog = (bookingId: number) => {
+    setSelectedBookingId(bookingId);
+    setAccessCode("");
+    setIsVerifyingDialog(true);
+  };
+
   const handleVerifyBooking = async (bookingId: number) => {
     setIsCheckingBooking(true);
     const booking = bookings.find(b => b.id === bookingId);
@@ -94,23 +97,36 @@ const BookingsPage = () => {
     }
     
     if (booking.key_issued && !booking.key_returned) {
-      // Return key
       const success = await returnKey(bookingId);
       if (success) {
         toast.success("Ключ успешно возвращен");
       }
     } else if (!booking.key_issued) {
-      // Issue key
-      const success = await issueKey(bookingId);
-      if (success) {
-        toast.success("Ключ успешно выдан");
-      }
+      openVerifyDialog(bookingId);
     }
     
     setIsCheckingBooking(false);
   };
 
-  // Function to handle booking approval
+  const handleIssueKey = async () => {
+    if (!selectedBookingId || !accessCode) {
+      toast.error("Необходимо указать код доступа");
+      return;
+    }
+
+    setIsCheckingBooking(true);
+    const success = await issueKey(selectedBookingId, accessCode);
+    
+    if (success) {
+      toast.success("Ключ успешно выдан");
+      setIsVerifyingDialog(false);
+      setSelectedBookingId(null);
+      setAccessCode("");
+    }
+    
+    setIsCheckingBooking(false);
+  };
+
   const handleApproveBooking = async (bookingId: number) => {
     const success = await updateBooking(bookingId, { 
       status: 'confirmed', 
@@ -124,7 +140,6 @@ const BookingsPage = () => {
     }
   };
 
-  // Function to handle booking rejection
   const handleRejectBooking = async (bookingId: number) => {
     const success = await updateBooking(bookingId, { 
       status: 'cancelled', 
@@ -138,9 +153,7 @@ const BookingsPage = () => {
     }
   };
 
-  // Function to open door for a room
   const handleOpenDoor = (roomId: string) => {
-    // This would connect to a door control system in a real implementation
     toast.success(`Дверь аудитории ${getRoomName(roomId)} открыта`);
   };
 
@@ -220,7 +233,7 @@ const BookingsPage = () => {
                               {isCheckingBooking ? (
                                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                               ) : (
-                                <Check className="h-4 w-4 mr-1" />
+                                <KeyRound className="h-4 w-4 mr-1" />
                               )}
                               {booking.key_issued ? "Ключ выдан" : "Выдать ключ"}
                             </Button>
@@ -373,7 +386,6 @@ const BookingsPage = () => {
         </Tabs>
       </div>
 
-      {/* Confirmation Dialog */}
       <Dialog open={!!activeBookingId} onOpenChange={(open) => !open && setActiveBookingId(null)}>
         <DialogContent>
           <DialogHeader>
@@ -412,6 +424,55 @@ const BookingsPage = () => {
               disabled={isLoading}
             >
               {isLoading ? "Обработка..." : "Подтвердить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isVerifyingDialog} onOpenChange={(open) => !open && setIsVerifyingDialog(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Проверка кода доступа</DialogTitle>
+            <DialogDescription>
+              Введите код доступа, предоставленный студентом, для выдачи ключа.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Введите код доступа"
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsVerifyingDialog(false);
+                setSelectedBookingId(null);
+                setAccessCode("");
+              }}
+              disabled={isCheckingBooking}
+            >
+              Отмена
+            </Button>
+            <Button 
+              onClick={handleIssueKey}
+              disabled={isCheckingBooking || !accessCode}
+            >
+              {isCheckingBooking ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Проверка...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="h-4 w-4 mr-1" />
+                  Выдать ключ
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

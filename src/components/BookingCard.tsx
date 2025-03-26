@@ -70,13 +70,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
             </div>
           )}
           
-          {booking.access_code && (
-            <div className="flex items-center gap-2 text-sm">
-              <DoorOpen className="h-4 w-4 text-muted-foreground" />
-              <span>Код доступа: {booking.access_code}</span>
-            </div>
-          )}
-          
           {booking.notes && (
             <div className="flex items-center gap-2 text-sm">
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
