@@ -45,6 +45,7 @@ export interface BookingUpdateDto {
   key_issued?: boolean;
   key_returned?: boolean;
   notes?: string;
+  access_code?: string;
 }
 
 // User API Types
@@ -99,3 +100,10 @@ export interface LoginResponseDto {
   };
   token: string;
 }
+
+// New interface for validating access code
+export interface ValidateAccessCodeDto {
+  booking_id: number;
+  access_code: string;
+}
+

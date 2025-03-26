@@ -10,7 +10,8 @@ import {
   LoginResponseDto,
   RegisterStudentDto,
   ValidateStudentIdDto,
-  ValidateStudentIdResponseDto
+  ValidateStudentIdResponseDto,
+  ValidateAccessCodeDto
 } from "@/types/api";
 import { Booking, Room } from "@/context/BookingContext";
 
@@ -123,14 +124,20 @@ export const bookingsApi = {
   update: (id: number, updates: BookingUpdateDto) => 
     fetchWithAuth<Booking>(`/bookings/${id}`, 'PUT', updates),
   
+  confirm: (id: number) => 
+    fetchWithAuth<Booking>(`/bookings/${id}/confirm`, 'POST'),
+  
   cancel: (id: number) => 
     fetchWithAuth<Booking>(`/bookings/${id}/cancel`, 'POST'),
   
-  issueKey: (id: number) => 
-    fetchWithAuth<Booking>(`/bookings/${id}/issue-key`, 'POST'),
+  issueKey: (id: number, accessCode: string) => 
+    fetchWithAuth<Booking>(`/bookings/${id}/issue-key`, 'POST', { access_code: accessCode }),
   
   returnKey: (id: number) => 
-    fetchWithAuth<Booking>(`/bookings/${id}/return-key`, 'POST')
+    fetchWithAuth<Booking>(`/bookings/${id}/return-key`, 'POST'),
+    
+  validateAccessCode: (data: ValidateAccessCodeDto) =>
+    fetchWithAuth<{valid: boolean}>('/bookings/validate-access-code', 'POST', data)
 };
 
 // Users API

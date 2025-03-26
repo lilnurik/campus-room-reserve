@@ -52,8 +52,9 @@ interface BookingContextType {
   getUserBookings: (userId: number) => Booking[];
   createBooking: (booking: Partial<Booking>) => Promise<Booking | null>;
   updateBooking: (id: number, updates: Partial<Booking>) => Promise<boolean>;
+  confirmBooking: (id: number) => Promise<boolean>;
   cancelBooking: (id: number) => Promise<boolean>;
-  issueKey: (bookingId: number) => Promise<boolean>;
+  issueKey: (bookingId: number, accessCode: string) => Promise<boolean>;
   returnKey: (bookingId: number) => Promise<boolean>;
   addRoom: (room: Room) => Promise<boolean>;
   updateRoom: (id: string, updates: Partial<Room>) => Promise<boolean>;
@@ -63,7 +64,7 @@ interface BookingContextType {
   refreshRooms: () => Promise<void>;
 }
 
-// Mock data
+// Mock data for rooms
 const MOCK_ROOMS: Room[] = [
   { 
     id: "A101", 
@@ -416,6 +417,51 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const confirmBooking = async (id: number): Promise<boolean> => {
+    setIsLoading(true);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!user || user.role !== 'admin') {
+        toast.error('Только администраторы могут подтверждать бронирования');
+        return false;
+      }
+      
+      const bookingIndex = bookings.findIndex(b => b.id === id);
+      
+      if (bookingIndex === -1) {
+        toast.error('Бронирование не найдено');
+        return false;
+      }
+      
+      if (bookings[bookingIndex].status !== 'pending') {
+        toast.error('Можно подтвердить только бронирования в статусе "ожидание"');
+        return false;
+      }
+      
+      const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      const updatedBookings = [...bookings];
+      updatedBookings[bookingIndex] = {
+        ...updatedBookings[bookingIndex],
+        status: 'confirmed',
+        access_code: accessCode,
+        updated_at: new Date().toISOString()
+      };
+      
+      setBookings(updatedBookings);
+      toast.success('Бронирование подтверждено, код доступа сгенерирован');
+      return true;
+    } catch (error) {
+      console.error("Error confirming booking:", error);
+      toast.error('Произошла ошибка при подтверждении бронирования');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const cancelBooking = async (id: number): Promise<boolean> => {
     setIsLoading(true);
     
@@ -458,7 +504,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const issueKey = async (bookingId: number): Promise<boolean> => {
+  const issueKey = async (bookingId: number, accessCode: string): Promise<boolean> => {
     setIsLoading(true);
     
     try {
@@ -478,6 +524,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       if (bookings[bookingIndex].key_issued) {
         toast.error('Ключ уже выдан');
+        return false;
+      }
+      
+      if (bookings[bookingIndex].access_code !== accessCode) {
+        toast.error('Неверный код доступа');
         return false;
       }
       
@@ -633,6 +684,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       getUserBookings,
       createBooking,
       updateBooking,
+      confirmBooking,
       cancelBooking,
       issueKey,
       returnKey,

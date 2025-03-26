@@ -1,15 +1,147 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Search, Clock, User, Calendar, CheckCircle, X, Calendar as CalendarIcon } from "lucide-react";
+import { Search, Clock, User, Calendar, CheckCircle, X, Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { useBooking } from "@/context/BookingContext";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import StatusBadge from "@/components/StatusBadge";
+import BookingCard from "@/components/BookingCard";
 
 const AdminBookingsPage = () => {
+  const { bookings, confirmBooking, cancelBooking, isLoading } = useBooking();
   const [searchTerm, setSearchTerm] = useState("");
+  const [filteredBookings, setFilteredBookings] = useState(bookings);
+  const [selectedBooking, setSelectedBooking] = useState<number | null>(null);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+
+  useEffect(() => {
+    const filtered = bookings.filter((booking) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        booking.room.toLowerCase().includes(searchLower) ||
+        (booking.student_name || "").toLowerCase().includes(searchLower) ||
+        new Date(booking.start).toLocaleDateString().includes(searchTerm)
+      );
+    });
+    setFilteredBookings(filtered);
+  }, [searchTerm, bookings]);
+
+  const handleConfirmBooking = async () => {
+    if (selectedBooking === null) return;
+    
+    const success = await confirmBooking(selectedBooking);
+    if (success) {
+      toast.success("Бронирование подтверждено");
+      setIsConfirmDialogOpen(false);
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (selectedBooking === null) return;
+    
+    const success = await cancelBooking(selectedBooking);
+    if (success) {
+      toast.success("Бронирование отменено");
+      setIsCancelDialogOpen(false);
+    }
+  };
+
+  const getPendingBookings = () => filteredBookings.filter(b => b.status === 'pending');
+  const getActiveBookings = () => filteredBookings.filter(b => b.status === 'confirmed' && new Date(b.start) <= new Date() && new Date(b.end) >= new Date());
+  const getUpcomingBookings = () => filteredBookings.filter(b => b.status === 'confirmed' && new Date(b.start) > new Date());
+  const getCompletedBookings = () => filteredBookings.filter(b => b.status === 'completed' || (b.status === 'confirmed' && new Date(b.end) < new Date()));
+
+  const renderBookingItem = (booking) => {
+    const roomDetails = booking.room;
+    const startDate = new Date(booking.start).toLocaleDateString();
+    const startTime = new Date(booking.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const endTime = new Date(booking.end).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    return (
+      <div key={booking.id} className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
+        <div className="flex flex-col md:flex-row justify-between gap-4">
+          <div className="space-y-2 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium text-lg">{roomDetails}</h3>
+              <StatusBadge status={booking.status} />
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>{startDate}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>{startTime} - {endTime}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span>{booking.student_name || `Студент #${booking.student_id}`}</span>
+            </div>
+            {booking.status === 'confirmed' && booking.access_code && (
+              <div className="text-sm font-medium text-green-600">
+                Код доступа: {booking.access_code}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {booking.status === 'pending' && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedBooking(booking.id);
+                    setIsConfirmDialogOpen(true);
+                  }}
+                  disabled={isLoading}
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Подтвердить
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedBooking(booking.id);
+                    setIsCancelDialogOpen(true);
+                  }}
+                  disabled={isLoading}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Отклонить
+                </Button>
+              </>
+            )}
+            {booking.status === 'confirmed' && (
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => {
+                  setSelectedBooking(booking.id);
+                  setIsCancelDialogOpen(true);
+                }}
+                disabled={isLoading}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Отменить
+              </Button>
+            )}
+            <Button variant="outline" size="sm">
+              <CalendarIcon className="h-4 w-4 mr-1" />
+              Детали
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <PageLayout role="admin">
@@ -34,13 +166,13 @@ const AdminBookingsPage = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="all">
+        <Tabs defaultValue="pending">
           <TabsList className="mb-6">
             <TabsTrigger value="all">Все</TabsTrigger>
-            <TabsTrigger value="active">Активные</TabsTrigger>
-            <TabsTrigger value="pending">Ожидание</TabsTrigger>
-            <TabsTrigger value="upcoming">Предстоящие</TabsTrigger>
-            <TabsTrigger value="completed">Завершенные</TabsTrigger>
+            <TabsTrigger value="pending">Ожидание ({getPendingBookings().length})</TabsTrigger>
+            <TabsTrigger value="active">Активные ({getActiveBookings().length})</TabsTrigger>
+            <TabsTrigger value="upcoming">Предстоящие ({getUpcomingBookings().length})</TabsTrigger>
+            <TabsTrigger value="completed">Завершенные ({getCompletedBookings().length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="space-y-4">
@@ -53,184 +185,13 @@ const AdminBookingsPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 205</h3>
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Активно</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>15.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>14:30 - 16:00</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Иван Иванов (Студент)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Детали
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          <X className="h-4 w-4 mr-1" />
-                          Отменить
-                        </Button>
-                      </div>
+                  {filteredBookings.length > 0 ? (
+                    filteredBookings.map(booking => renderBookingItem(booking))
+                  ) : (
+                    <div className="text-center py-10">
+                      <p className="text-muted-foreground">Бронирования не найдены</p>
                     </div>
-                  </div>
-
-                  <div className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 101</h3>
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Активно</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>15.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>13:00 - 15:30</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Елена Смирнова (Преподаватель)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Детали
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          <X className="h-4 w-4 mr-1" />
-                          Отменить
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 310</h3>
-                          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Подтверждено</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>17.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>16:00 - 17:30</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Александр Петров (Студент)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Детали
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          <X className="h-4 w-4 mr-1" />
-                          Отменить
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="active" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Активные бронирования</CardTitle>
-                <CardDescription>
-                  Бронирования, которые активны в данный момент
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 205</h3>
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Активно</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>15.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>14:30 - 16:00 (Осталось 45 минут)</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Иван Иванов (Студент)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Детали
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          <X className="h-4 w-4 mr-1" />
-                          Отменить
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 101</h3>
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Активно</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>15.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>13:00 - 15:30 (Осталось 1 час 15 минут)</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Елена Смирнова (Преподаватель)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Детали
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          <X className="h-4 w-4 mr-1" />
-                          Отменить
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -246,38 +207,35 @@ const AdminBookingsPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 401</h3>
-                          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Ожидание</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>18.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>11:00 - 13:00</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Мария Петрова (Студент)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Подтвердить
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          <X className="h-4 w-4 mr-1" />
-                          Отклонить
-                        </Button>
-                      </div>
+                  {getPendingBookings().length > 0 ? (
+                    getPendingBookings().map(booking => renderBookingItem(booking))
+                  ) : (
+                    <div className="text-center py-10">
+                      <p className="text-muted-foreground">Нет бронирований, ожидающих подтверждения</p>
                     </div>
-                  </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="active" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Активные бронирования</CardTitle>
+                <CardDescription>
+                  Бронирования, которые активны в данный момент
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {getActiveBookings().length > 0 ? (
+                    getActiveBookings().map(booking => renderBookingItem(booking))
+                  ) : (
+                    <div className="text-center py-10">
+                      <p className="text-muted-foreground">Нет активных бронирований</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -293,38 +251,13 @@ const AdminBookingsPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 310</h3>
-                          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Подтверждено</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>17.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>16:00 - 17:30</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Александр Петров (Студент)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Детали
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          <X className="h-4 w-4 mr-1" />
-                          Отменить
-                        </Button>
-                      </div>
+                  {getUpcomingBookings().length > 0 ? (
+                    getUpcomingBookings().map(booking => renderBookingItem(booking))
+                  ) : (
+                    <div className="text-center py-10">
+                      <p className="text-muted-foreground">Нет предстоящих бронирований</p>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -340,69 +273,94 @@ const AdminBookingsPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="border rounded-lg p-4 opacity-75 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 310</h3>
-                          <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">Завершено</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>10.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>13:00 - 14:30</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Иван Иванов (Студент)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Детали
-                        </Button>
-                      </div>
+                  {getCompletedBookings().length > 0 ? (
+                    getCompletedBookings().map(booking => renderBookingItem(booking))
+                  ) : (
+                    <div className="text-center py-10">
+                      <p className="text-muted-foreground">Нет завершенных бронирований</p>
                     </div>
-                  </div>
-                  
-                  <div className="border rounded-lg p-4 opacity-75 hover:bg-accent/20 transition-colors">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">Аудитория 205</h3>
-                          <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">Завершено</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>5.05.2024</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>15:00 - 17:00</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>Мария Петрова (Студент)</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Детали
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Confirm Booking Dialog */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Подтверждение бронирования</DialogTitle>
+            <DialogDescription>
+              Вы действительно хотите подтвердить это бронирование? После подтверждения будет сгенерирован код доступа.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsConfirmDialogOpen(false)}
+              disabled={isLoading}
+            >
+              Отмена
+            </Button>
+            <Button 
+              onClick={handleConfirmBooking}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Подтверждение...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Подтвердить
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Booking Dialog */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Отмена бронирования</DialogTitle>
+            <DialogDescription>
+              Вы действительно хотите отменить это бронирование? Это действие нельзя отменить.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsCancelDialogOpen(false)}
+              disabled={isLoading}
+            >
+              Отмена
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleCancelBooking}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Отмена бронирования...
+                </>
+              ) : (
+                <>
+                  <X className="h-4 w-4 mr-2" />
+                  Отменить бронирование
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 };

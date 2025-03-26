@@ -5,7 +5,7 @@ import { formatDate, formatTime, isBookingActive, isBookingOverdue, isBookingUpc
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CalendarClock, DoorOpen, KeyRound, AlertCircle } from 'lucide-react';
+import { CalendarClock, DoorOpen, KeyRound, AlertCircle, LockKeyhole } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 
 interface BookingCardProps {
@@ -16,6 +16,7 @@ interface BookingCardProps {
   onViewDetails?: (booking: Booking) => void;
   showKeyControls?: boolean;
   showCancelButton?: boolean;
+  showAccessCode?: boolean;
 }
 
 const BookingCard: React.FC<BookingCardProps> = ({
@@ -25,7 +26,8 @@ const BookingCard: React.FC<BookingCardProps> = ({
   onReturnKey,
   onViewDetails,
   showKeyControls = false,
-  showCancelButton = false
+  showCancelButton = false,
+  showAccessCode = true
 }) => {
   const isActive = isBookingActive(booking.start, booking.end);
   const isUpcoming = isBookingUpcoming(booking.start);
@@ -58,6 +60,13 @@ const BookingCard: React.FC<BookingCardProps> = ({
               {isOverdue && !booking.key_returned && (
                 <Badge variant="destructive" className="ml-2">Просрочено</Badge>
               )}
+            </div>
+          )}
+          
+          {showAccessCode && booking.status === 'confirmed' && booking.access_code && (
+            <div className="flex items-center gap-2 text-sm">
+              <LockKeyhole className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-green-600">Код доступа: {booking.access_code}</span>
             </div>
           )}
           

@@ -36,7 +36,9 @@ const KeysPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeKey, setActiveKey] = useState<RoomKey | null>(null);
   const [notes, setNotes] = useState("");
+  const [accessCode, setAccessCode] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAccessCodeError, setIsAccessCodeError] = useState(false);
   
   // Mock keys data - in a real implementation, this would come from an API
   const [keys, setKeys] = useState<RoomKey[]>([]);
@@ -117,6 +119,8 @@ const KeysPage = () => {
   const handleIssueKey = (key: RoomKey) => {
     setActiveKey(key);
     setNotes("");
+    setAccessCode("");
+    setIsAccessCodeError(false);
     setIsDialogOpen(true);
   };
 
@@ -149,9 +153,7 @@ const KeysPage = () => {
     if (!activeKey) return;
     
     setIsLoading(true);
-    
-    // In a real implementation, we would call an API to issue the key
-    // For now, just update our local state
+    setIsAccessCodeError(false);
     
     // Find a booking that matches this room
     const matchingBooking = bookings.find(b => 
@@ -161,7 +163,23 @@ const KeysPage = () => {
     );
     
     if (matchingBooking) {
-      const success = await issueKey(matchingBooking.id);
+      // Verify access code
+      if (!accessCode) {
+        setIsAccessCodeError(true);
+        toast.error("Необходимо ввести код доступа");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Check if access code matches
+      if (matchingBooking.access_code !== accessCode) {
+        setIsAccessCodeError(true);
+        toast.error("Неверный код доступа");
+        setIsLoading(false);
+        return;
+      }
+      
+      const success = await issueKey(matchingBooking.id, accessCode);
       
       if (success) {
         // Update local state
@@ -181,15 +199,14 @@ const KeysPage = () => {
         ));
         
         toast.success("Ключ успешно выдан");
+        setIsDialogOpen(false);
       }
     } else {
-      // Manual key issue (without a booking) would be implemented here in a real app
-      // For now, just show a message
-      toast.error("Не найдено подходящее бронирование для этой аудитории");
+      // No matching booking found
+      toast.error("Не найдено подтвержденное бронирование для этой аудитории или код доступа не сгенерирован");
     }
     
     setIsLoading(false);
-    setIsDialogOpen(false);
   };
 
   return (
@@ -402,11 +419,32 @@ const KeysPage = () => {
           <DialogHeader>
             <DialogTitle>Выдача ключа</DialogTitle>
             <DialogDescription>
-              Укажите информацию о выдаче ключа для аудитории {activeKey?.room_name}.
+              Для выдачи ключа необходимо ввести код доступа, который студент получил после подтверждения бронирования администратором.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="accessCode" className="text-sm font-medium">
+                Код доступа
+              </label>
+              <Input
+                id="accessCode"
+                placeholder="Введите код доступа"
+                value={accessCode}
+                onChange={(e) => {
+                  setAccessCode(e.target.value);
+                  setIsAccessCodeError(false);
+                }}
+                className={isAccessCodeError ? "border-red-500" : ""}
+              />
+              {isAccessCodeError && (
+                <p className="text-sm text-red-500">
+                  Неверный код доступа. Попросите студента показать код из его бронирования.
+                </p>
+              )}
+            </div>
+            
             <Textarea
               placeholder="Комментарий к выдаче ключа (необязательно)"
               value={notes}
@@ -427,7 +465,14 @@ const KeysPage = () => {
               onClick={handleConfirmIssueKey}
               disabled={isLoading}
             >
-              {isLoading ? "Обработка..." : "Выдать ключ"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Обработка...
+                </>
+              ) : (
+                "Выдать ключ"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
