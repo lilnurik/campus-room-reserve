@@ -1,11 +1,12 @@
 
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu, User, Calendar, Clock, History, Settings, Home, Users, Building } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-mobile";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useAuth } from "@/context/AuthContext";
 
 interface NavItem {
   label: string;
@@ -15,6 +16,8 @@ interface NavItem {
 
 const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin" }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [open, setOpen] = useState(false);
 
@@ -109,7 +112,7 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
                       variant="ghost"
                       className="w-full justify-start mb-1"
                       onClick={() => {
-                        navigate(link.path);
+                        navigate(item.href);
                         setOpen(false);
                       }}
                     >
