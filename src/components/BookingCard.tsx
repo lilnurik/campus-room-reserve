@@ -1,119 +1,95 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar, Clock, Eye } from "lucide-react";
+import { formatDate, formatTime } from "@/lib/utils";
+import { useTranslation } from "@/context/LanguageContext";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import React from 'react';
-import { Booking } from '@/context/BookingContext';
-import { formatDate, formatTime, isBookingActive, isBookingOverdue, isBookingUpcoming } from '@/lib/utils';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { CalendarClock, DoorOpen, KeyRound, AlertCircle, LockKeyhole } from 'lucide-react';
-import StatusBadge from './StatusBadge';
-import { useTranslation } from '@/context/LanguageContext';
+// Status configuration for styling and labels
+const statusConfig = {
+  pending: { label: "pending", variant: "outline", color: "text-amber-500" },
+  approved: { label: "approved", variant: "outline", color: "text-blue-500" },
+  rejected: { label: "rejected", variant: "outline", color: "text-red-500" },
+  confirmed: { label: "confirmed", variant: "outline", color: "text-blue-500" },
+  given: { label: "keyIssued", variant: "default", color: "text-green-500" },
+  taken: { label: "completed", variant: "outline", color: "text-slate-500" }
+};
 
-interface BookingCardProps {
-  booking: Booking;
-  onCancel?: (id: number) => void;
-  onIssueKey?: (id: number) => void;
-  onReturnKey?: (id: number) => void;
-  onViewDetails?: (booking: Booking) => void;
-  showKeyControls?: boolean;
-  showCancelButton?: boolean;
-  showAccessCode?: boolean;
-}
+const BookingCard = ({ booking }) => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [showCode, setShowCode] = useState(false);
 
-const BookingCard: React.FC<BookingCardProps> = ({
-  booking,
-  onCancel,
-  onIssueKey,
-  onReturnKey,
-  onViewDetails,
-  showKeyControls = false,
-  showCancelButton = false,
-  showAccessCode = true
-}) => {
-  const { t, language } = useTranslation();
-  const isActive = isBookingActive(booking.start, booking.end);
-  const isUpcoming = isBookingUpcoming(booking.start);
-  const isOverdue = isBookingOverdue(booking.end) && !booking.key_returned && booking.key_issued;
-  
+  // Handle date formatting
+  const startDate = new Date(booking.start);
+  const endDate = new Date(booking.end);
+
+  // Get status styling
+  const statusInfo = statusConfig[booking.status] || statusConfig.pending;
+
+  // View booking details
+  const handleViewDetails = () => {
+    navigate(`/student/booking/${booking.id}`);
+  };
+
   return (
-    <Card className="w-full transition-all duration-300 hover:shadow-md">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
+      <div className="mb-3 last:mb-0 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+        <div className="flex justify-between items-start mb-2">
           <div>
-            <CardTitle className="text-lg">{booking.room}</CardTitle>
-            <CardDescription>{booking.student_name || `Студент ID: ${booking.student_id}`}</CardDescription>
+            <h3 className="font-medium">{booking.roomName || booking.room}</h3>
+            <p className="text-sm text-muted-foreground">{booking.roomCategory || booking.building}</p>
           </div>
-          <StatusBadge status={isOverdue ? 'overdue' : booking.status} />
+          <Badge variant={statusInfo.variant} className={statusInfo.color}>
+            {t(`bookings.status.${statusInfo.label}`)}
+          </Badge>
         </div>
-      </CardHeader>
-      <CardContent className="py-2">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm">
-            <CalendarClock className="h-4 w-4 text-muted-foreground" />
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm mt-3">
+          <div className="flex items-center gap-1">
+            <Calendar size={14} />
+            <span>{formatDate(startDate)}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Clock size={14} />
             <span>
-              {formatDate(booking.start)}, {formatTime(booking.start)} - {formatTime(booking.end)}
-            </span>
+            {formatTime(startDate)} - {formatTime(endDate)}
+          </span>
           </div>
-          
-          {booking.key_issued && (
-            <div className="flex items-center gap-2 text-sm">
-              <KeyRound className="h-4 w-4 text-muted-foreground" />
-              <span>{booking.key_returned ? t('booking.keyReturned') : t('booking.keyIssued')}</span>
-              {isOverdue && !booking.key_returned && (
-                <Badge variant="destructive" className="ml-2">
-                  {language === 'ru' ? 'Просрочено' : 'Overdue'}
-                </Badge>
-              )}
-            </div>
-          )}
-          
-          {showAccessCode && booking.status === 'confirmed' && booking.access_code && (
-            <div className="flex items-center gap-2 text-sm">
-              <LockKeyhole className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-green-600">
-                {t('booking.accessCode')}: {booking.access_code}
-              </span>
-            </div>
-          )}
-          
-          {booking.notes && (
-            <div className="flex items-center gap-2 text-sm">
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-              <span>{booking.notes}</span>
-            </div>
-          )}
         </div>
-      </CardContent>
-      <CardFooter className="pt-2 flex flex-wrap gap-2">
-        {showKeyControls && (
-          <>
-            {!booking.key_issued && booking.status === 'confirmed' && onIssueKey && (
-              <Button variant="outline" size="sm" onClick={() => onIssueKey(booking.id)}>
-                {language === 'ru' ? 'Выдать ключ' : 'Issue Key'}
+
+        {/* Show access code for relevant bookings */}
+        {(booking.status === 'approved' || booking.status === 'confirmed') && booking.secretCode && (
+            <div className="mt-2 bg-muted p-2 rounded flex justify-between items-center">
+              <div>
+                <p className="text-xs text-muted-foreground">{t('bookings.accessCode')}:</p>
+                <p className="font-mono font-medium">
+                  {showCode ? booking.secretCode : '••••••'}
+                </p>
+              </div>
+              <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setShowCode(!showCode)}
+              >
+                {showCode ? t('bookings.hideCode') : t('bookings.showCode')}
               </Button>
-            )}
-            
-            {booking.key_issued && !booking.key_returned && onReturnKey && (
-              <Button variant="outline" size="sm" onClick={() => onReturnKey(booking.id)}>
-                {language === 'ru' ? 'Принять ключ' : 'Return Key'}
-              </Button>
-            )}
-          </>
+            </div>
         )}
-        
-        {showCancelButton && booking.status === 'pending' && onCancel && (
-          <Button variant="outline" size="sm" className="border-red-200 hover:bg-red-50" onClick={() => onCancel(booking.id)}>
-            {t('common.cancel')}
+
+        {/* Actions for this booking */}
+        <div className="mt-3 flex justify-end">
+          <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              onClick={handleViewDetails}
+          >
+            <Eye size={14} />
+            {t('bookings.viewDetails')}
           </Button>
-        )}
-        
-        {onViewDetails && (
-          <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onViewDetails(booking)}>
-            {t('common.details')}
-          </Button>
-        )}
-      </CardFooter>
-    </Card>
+        </div>
+      </div>
   );
 };
 

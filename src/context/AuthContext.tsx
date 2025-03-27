@@ -118,84 +118,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.info('Вы вышли из системы');
     navigate('/login');
   };
-  
-  const validateStudentId = async (studentId: string): Promise<{
-    success: boolean, 
-    data?: ValidateStudentIdResponseDto, 
-    error?: string
-  }> => {
+
+  const validateStudentId = async (studentId: string) => {
     try {
-      // In a real app, this would call the API
-      // const response = await authApi.validateStudentId({ student_id: studentId });
-      
-      // For demo purposes, we'll use mock data
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API call
-      
-      const isValid = VALID_STUDENT_IDS.includes(studentId);
-      
-      if (isValid) {
-        // Mock response data
-        return {
-          success: true,
-          data: {
-            exists: true,
-            name: studentId === "U12345" ? "Иван Иванов" : undefined,
-            department: studentId === "U12345" ? "Компьютерные науки" : undefined
-          }
-        };
-      } else {
-        return {
-          success: false,
-          error: "ID студента не найден в системе"
-        };
-      }
+      return await authApi.checkStudentId(studentId);
     } catch (error) {
+      console.error('Error validating student ID:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Произошла ошибка при проверке ID студента"
+        error: error instanceof Error ? error.message : 'Unknown error validating student ID'
       };
     }
   };
-  
+
+
   const registerStudent = async (
-    studentId: string, 
-    name: string, 
-    email: string, 
-    password: string, 
-    phone?: string
-  ): Promise<{success: boolean, error?: string}> => {
+      studentId: string,
+      name: string,
+      email: string,
+      password: string,
+      phone?: string
+  ) => {
     try {
-      // In a real app, this would call the API
-      // const response = await authApi.registerStudent({ 
-      //   student_id: studentId, 
-      //   name, 
-      //   email, 
-      //   password,
-      //   phone 
-      // });
-      
-      // For demo purposes, we'll use mock data
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      // Check if email is already used
-      const emailExists = MOCK_USERS.some(user => user.email === email);
-      
-      if (emailExists) {
-        return {
-          success: false,
-          error: "Этот email уже используется"
-        };
-      }
-      
-      // In a real app, the backend would create the user
-      // For our mock demo, we just return success
-      return {
-        success: true
-      };
+      // For the new API, we only need studentId and password
+      // Other fields are fetched from Excel
+      return await authApi.completeRegistration(studentId, password);
     } catch (error) {
+      console.error('Error registering student:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Произошла ошибка при регистрации"
+        error: error instanceof Error ? error.message : 'Unknown error during registration'
       };
     }
   };

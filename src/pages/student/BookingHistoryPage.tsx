@@ -1,235 +1,391 @@
-
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Calendar } from "@/components/ui/calendar";
-import { Filter, Search, Clock } from "lucide-react";
-import BookingCard from "@/components/BookingCard";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
-import { formatDate } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertCircle, Calendar, Clock, CheckCircle, XCircle,
+  BookOpen, Loader2, RefreshCw, Building, BookMarked
+} from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { ru } from "date-fns/locale";
+import { toast } from "sonner";
+import { roomsApi, Booking } from "@/services/api";
+import { useTranslation } from "@/context/LanguageContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-interface Booking {
-  id: number;
-  room: string;
-  student_id: string;
-  student_name: string;
-  start: string;
-  end: string;
-  status: string;
-  key_issued: boolean;
-  key_returned: boolean;
-  access_code: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-}
-
-const mockBookings: Booking[] = [
-  {
-    id: 1,
-    room: "A101",
-    student_id: "2020123456",
-    student_name: "Иванов Иван",
-    start: "2024-09-15T10:00:00",
-    end: "2024-09-15T12:00:00",
-    status: "confirmed",
-    key_issued: true,
-    key_returned: false,
-    access_code: "1234",
-    notes: "Групповое занятие",
-    created_at: "2024-09-01T10:00:00",
-    updated_at: "2024-09-01T10:00:00"
-  },
-  {
-    id: 2,
-    room: "B203",
-    student_id: "2021654321",
-    student_name: "Петрова Анна",
-    start: "2024-09-16T14:00:00",
-    end: "2024-09-16T16:00:00",
-    status: "completed",
-    key_issued: true,
-    key_returned: true,
-    access_code: "5678",
-    notes: "Индивидуальная работа",
-    created_at: "2024-09-02T10:00:00",
-    updated_at: "2024-09-02T10:00:00"
-  },
-  {
-    id: 3,
-    room: "C305",
-    student_id: "2019112233",
-    student_name: "Сидоров Алексей",
-    start: "2024-09-17T16:00:00",
-    end: "2024-09-17T18:00:00",
-    status: "cancelled",
-    key_issued: false,
-    key_returned: false,
-    access_code: null,
-    notes: "Отменено",
-    created_at: "2024-09-03T10:00:00",
-    updated_at: "2024-09-03T10:00:00"
-  },
-  {
-    id: 4,
-    room: "A105",
-    student_id: "2022445566",
-    student_name: "Смирнова Ольга",
-    start: "2024-09-18T12:00:00",
-    end: "2024-09-18T14:00:00",
-    status: "pending",
-    key_issued: false,
-    key_returned: false,
-    access_code: null,
-    notes: "Ожидает подтверждения",
-    created_at: "2024-09-04T10:00:00",
-    updated_at: "2024-09-04T10:00:00"
-  },
-  {
-    id: 5,
-    room: "D401",
-    student_id: "2020998877",
-    student_name: "Иванов Дмитрий",
-    start: "2024-09-19T09:00:00",
-    end: "2024-09-19T11:00:00",
-    status: "confirmed",
-    key_issued: true,
-    key_returned: false,
-    access_code: "9012",
-    notes: "Подготовка к конференции",
-    created_at: "2024-09-05T10:00:00",
-    updated_at: "2024-09-05T10:00:00"
+// Helper function to format date
+const formatDateTime = (dateStr: string) => {
+  try {
+    const date = parseISO(dateStr);
+    return format(date, 'dd.MM.yyyy HH:mm', { locale: ru });
+  } catch (e) {
+    return dateStr;
   }
-];
+};
+
+// Helper function to get status badge
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'approved':
+      return (
+          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Подтверждено
+          </Badge>
+      );
+    case 'pending':
+      return (
+          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+            <Clock className="h-3 w-3 mr-1" />
+            Ожидает подтверждения
+          </Badge>
+      );
+    case 'rejected':
+      return (
+          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+            <XCircle className="h-3 w-3 mr-1" />
+            Отклонено
+          </Badge>
+      );
+      // ... continuing from before
+    case 'cancelled':
+      return (
+          <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-100">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            Отменено
+          </Badge>
+      );
+    case 'given':
+      return (
+          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+            <BookMarked className="h-3 w-3 mr-1" />
+            Ключ выдан
+          </Badge>
+      );
+    case 'taken':
+      return (
+          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">
+            <BookMarked className="h-3 w-3 mr-1" />
+            Ключ возвращен
+          </Badge>
+      );
+    default:
+      return (
+          <Badge variant="outline">
+            {status}
+          </Badge>
+      );
+  }
+};
 
 const BookingHistoryPage = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const { t } = useTranslation();
+  const navigate = useNavigate();
 
-  const filteredBookings = mockBookings.filter((booking) => {
-    const searchMatch =
-      booking.room.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.student_name.toLowerCase().includes(searchQuery.toLowerCase());
+  const [activeTab, setActiveTab] = useState("all");
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
-    const filterMatch =
-      filter === "all" || booking.status.toLowerCase() === filter;
+  // Load bookings
+  useEffect(() => {
+    loadBookings();
+  }, []);
 
-    // Fix: Convert Date to string for comparison
-    const dateMatch = !date || formatDate(booking.start) === formatDate(date.toISOString());
+  // Filter bookings when tab changes
+  useEffect(() => {
+    filterBookings(activeTab);
+  }, [activeTab, bookings]);
 
-    return searchMatch && filterMatch && dateMatch;
-  });
+  const loadBookings = async () => {
+    setIsLoading(true);
+
+    try {
+      const response = await roomsApi.getUserBookings();
+
+      if (response.success && response.data) {
+        setBookings(response.data);
+      } else {
+        toast.error("Ошибка загрузки бронирований");
+      }
+    } catch (error) {
+      console.error("Error loading bookings:", error);
+      toast.error("Ошибка загрузки бронирований");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const refreshBookings = async () => {
+    setIsRefreshing(true);
+
+    try {
+      const response = await roomsApi.getUserBookings();
+
+      if (response.success && response.data) {
+        setBookings(response.data);
+        toast.success("Данные обновлены");
+      } else {
+        toast.error("Ошибка обновления данных");
+      }
+    } catch (error) {
+      console.error("Error refreshing bookings:", error);
+      toast.error("Ошибка обновления данных");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const filterBookings = (tab: string) => {
+    switch (tab) {
+      case "pending":
+        setFilteredBookings(bookings.filter(b => b.status === 'pending'));
+        break;
+      case "approved":
+        setFilteredBookings(bookings.filter(b => b.status === 'approved' || b.status === 'given'));
+        break;
+      case "completed":
+        setFilteredBookings(bookings.filter(b => b.status === 'taken'));
+        break;
+      case "rejected":
+        setFilteredBookings(bookings.filter(b => b.status === 'rejected' || b.status === 'cancelled'));
+        break;
+      case "all":
+      default:
+        setFilteredBookings(bookings);
+        break;
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!selectedBooking) return;
+
+    setIsCancelling(true);
+
+    try {
+      const response = await roomsApi.cancelBooking(selectedBooking.id);
+
+      if (response.success) {
+        // Update booking in local state
+        const updatedBookings = bookings.map(b =>
+            b.id === selectedBooking.id ? { ...b, status: 'cancelled' } : b
+        );
+
+        setBookings(updatedBookings);
+        filterBookings(activeTab);
+        toast.success("Бронирование успешно отменено");
+      } else {
+        toast.error(response.error || "Ошибка при отмене бронирования");
+      }
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      toast.error("Ошибка при отмене бронирования");
+    } finally {
+      setIsCancelling(false);
+      setShowCancelDialog(false);
+      setSelectedBooking(null);
+    }
+  };
+
+  const openCancelDialog = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowCancelDialog(true);
+  };
+
+  const canBeCancelled = (booking: Booking) => {
+    return booking.status === 'pending' || booking.status === 'approved';
+  };
 
   return (
-    <PageLayout role="student">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">История бронирований</h1>
-          <p className="text-muted-foreground">
-            Просматривайте и управляйте своими бронированиями
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <div className="lg:col-span-3 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Search className="h-5 w-5 text-muted-foreground" />
-                  <span>Поиск бронирований</span>
-                </CardTitle>
-                <CardDescription>
-                  Ищите бронирования по номеру комнаты или имени студента
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="relative">
-                  <Input
-                    type="search"
-                    placeholder="Поиск..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-3">
-              {filteredBookings.length > 0 ? (
-                filteredBookings.map((booking) => (
-                  <BookingCard key={booking.id} booking={booking as any} />
-                ))
-              ) : (
-                <Card className="p-4 text-center text-muted-foreground">
-                  Нет бронирований, соответствующих вашим критериям.
-                </Card>
-              )}
+      <PageLayout role="student">
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">{t("bookingHistory.title") || "История бронирований"}</h1>
+              <p className="text-muted-foreground">
+                {t("bookingHistory.subtitle") || "Просмотр и управление вашими бронированиями аудиторий"}
+              </p>
             </div>
+
+            <Button
+                variant="outline"
+                size="icon"
+                onClick={refreshBookings}
+                disabled={isRefreshing || isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
 
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Filter className="h-5 w-5 text-muted-foreground" />
-                  <span>Фильтры</span>
-                </CardTitle>
-                <CardDescription>
-                  Фильтруйте бронирования по статусу и дате
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Статус</h4>
-                  <Tabs defaultValue="all" className="w-full">
-                    <TabsList>
-                      <TabsTrigger value="all" onClick={() => setFilter("all")}>Все</TabsTrigger>
-                      <TabsTrigger value="pending" onClick={() => setFilter("pending")}>Ожидающие</TabsTrigger>
-                      <TabsTrigger value="confirmed" onClick={() => setFilter("confirmed")}>Подтвержденные</TabsTrigger>
-                      <TabsTrigger value="completed" onClick={() => setFilter("completed")}>Завершенные</TabsTrigger>
-                      <TabsTrigger value="cancelled" onClick={() => setFilter("cancelled")}>Отмененные</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
+          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="all">{t("bookingHistory.tabs.all") || "Все"}</TabsTrigger>
+              <TabsTrigger value="pending">{t("bookingHistory.tabs.pending") || "Ожидающие"}</TabsTrigger>
+              <TabsTrigger value="approved">{t("bookingHistory.tabs.approved") || "Подтвержденные"}</TabsTrigger>
+              <TabsTrigger value="completed">{t("bookingHistory.tabs.completed") || "Завершенные"}</TabsTrigger>
+              <TabsTrigger value="rejected">{t("bookingHistory.tabs.rejected") || "Отклоненные"}</TabsTrigger>
+            </TabsList>
 
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Дата</h4>
-                  <Card className="border-none shadow-none">
-                    <CardContent className="grid gap-4 p-0">
-                      <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={setDate}
-                        className="rounded-md border"
-                      />
-                      {date ? (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="w-full justify-center"
-                          onClick={() => setDate(undefined)}
-                        >
-                          Сбросить дату
-                        </Button>
-                      ) : (
-                        <p className="text-center text-sm text-muted-foreground">
-                          Выберите дату
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
+            {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <span className="ml-2">{t("common.loading") || "Загрузка..."}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+            ) : filteredBookings.length > 0 ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Аудитория</TableHead>
+                          <TableHead>Дата и время</TableHead>
+                          <TableHead>Цель</TableHead>
+                          <TableHead>Статус</TableHead>
+                          <TableHead className="text-right">Действия</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredBookings.map(booking => (
+                            <TableRow key={booking.id}>
+                              <TableCell className="font-medium">
+                                <div className="flex items-start gap-2">
+                                  <Building className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                  <div>
+                                    <div>{booking.room_name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {booking.room_category}, {booking.room_capacity} мест
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-start gap-2">
+                                  <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                  <div>
+                                    <div>{formatDateTime(booking.from_date)}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      до {formatDateTime(booking.until_date)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="max-w-xs truncate" title={booking.purpose}>
+                                  {booking.purpose || "Не указана"}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {booking.attendees} {booking.attendees === 1 ? 'участник' : 'участников'}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(booking.status)}
+
+                                {booking.status === 'approved' && booking.secret_code && (
+                                    <div className="mt-1 text-xs font-mono">
+                                      Код: {booking.secret_code}
+                                    </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => navigate(`/student/bookings/${booking.id}`)}
+                                  >
+                                    <BookOpen className="h-4 w-4 mr-1" />
+                                    Детали
+                                  </Button>
+
+                                  {canBeCancelled(booking) && (
+                                      <Button
+                                          variant="destructive"
+                                          size="sm"
+                                          onClick={() => openCancelDialog(booking)}
+                                      >
+                                        <XCircle className="h-4 w-4 mr-1" />
+                                        Отменить
+                                      </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+            ) : (
+                <Card>
+                  <CardContent className="py-10">
+                    <div className="text-center">
+                      <Calendar className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2">{t("bookingHistory.noBookings") || "Нет бронирований"}</h3>
+                      <p className="text-muted-foreground max-w-sm mx-auto mb-6">
+                        {activeTab === "all"
+                            ? (t("bookingHistory.noBookingsDesc") || "У вас пока нет бронирований аудиторий. Создайте новое бронирование, чтобы оно появилось в этом списке.")
+                            : (t("bookingHistory.noCategoryBookings") || "В данной категории нет бронирований.")}
+                      </p>
+                      <Button onClick={() => navigate('/student/booking')}>
+                        <BookMarked className="h-4 w-4 mr-2" />
+                        {t("bookingHistory.createNew") || "Забронировать аудиторию"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+            )}
+          </Tabs>
         </div>
-      </div>
-    </PageLayout>
+
+        {/* Cancel Booking Dialog */}
+        <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("bookingHistory.confirmCancel") || "Подтверждение отмены"}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("bookingHistory.confirmCancelDesc") || "Вы уверены, что хотите отменить бронирование аудитории"} {selectedBooking?.room_name}?
+                {t("bookingDetails.cancelWarning") || "Это действие нельзя будет отменить."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isCancelling}>{t("common.cancel") || "Отмена"}</AlertDialogCancel>
+              <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleCancelBooking();
+                  }}
+                  disabled={isCancelling}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isCancelling ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t("bookingHistory.cancelling") || "Отмена бронирования..."}</>
+                ) : (
+                    t("bookingHistory.cancelAction") || 'Да, отменить бронирование'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </PageLayout>
   );
 };
 

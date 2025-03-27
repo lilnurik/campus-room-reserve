@@ -73,7 +73,7 @@ export interface LoginDto {
 }
 
 export interface RegisterStudentDto {
-  student_id: string; // In format U12345
+  studentId: string;
   name: string;
   email: string;
   password: string;
@@ -81,14 +81,20 @@ export interface RegisterStudentDto {
 }
 
 export interface ValidateStudentIdDto {
-  student_id: string; // In format U12345
+  studentId: string;
 }
 
 export interface ValidateStudentIdResponseDto {
-  exists: boolean;
-  name?: string;
-  department?: string;
+  message: string;
+  status: 'verified' | 'registered' | 'not_found';
+  student_info?: {
+    full_name: string;
+    email: string;
+    group: string;
+    faculty: string;
+  };
 }
+
 
 export interface LoginResponseDto {
   user: {

@@ -7,24 +7,22 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Format date to readable format
-export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+// Format a date to a human-readable format
+export function formatDate(date) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
 }
 
-// Format time to readable format
-export function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString('ru-RU', {
+// Format a time to a human-readable format
+export function formatTime(date) {
+  return new Intl.DateTimeFormat('ru-RU', {
     hour: '2-digit',
-    minute: '2-digit'
-  });
+    minute: '2-digit',
+  }).format(date);
 }
-
 // Format datetime to readable format
 export function formatDateTime(dateString: string): string {
   return `${formatDate(dateString)}, ${formatTime(dateString)}`;
@@ -110,6 +108,57 @@ export function getStatusName(status: string): string {
     default:
       return status;
   }
+}
+
+// Add this to your utilities if you don't already have it
+
+export async function fetchWithAuth<T>(
+    url: string,
+    method: string = 'GET',
+    body?: any
+): Promise<ApiResponse<T>> {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return { success: false, error: 'No authentication token found' };
+    }
+
+    const headers: HeadersInit = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+
+    const options: RequestInit = {
+      method,
+      headers
+    };
+
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url, options);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || data.message || `Request failed with status ${response.status}`
+      };
+    }
+
+    return { success: true, data: data as T };
+  } catch (error) {
+    console.error('API request error:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+// Define the common API response type
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
 }
 
 // Generate QR code value from booking ID and access code
