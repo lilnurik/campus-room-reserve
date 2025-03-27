@@ -1,9 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu, User, Calendar, Clock, History, Settings, Home, Users, Building } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-mobile";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 interface NavItem {
   label: string;
@@ -36,7 +38,6 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
       case "admin":
         return [
           { label: "Главная", href: "/admin/dashboard", icon: <Home size={18} /> },
-          { label: "Дашборд", href: "/admin/dashboard", icon: <Home size={18} /> },
           { label: "Управление бронями", href: "/admin/bookings", icon: <Calendar size={18} /> },
           { label: "Аудитории", href: "/admin/rooms", icon: <Building size={18} /> },
           { label: "Пользователи", href: "/admin/users", icon: <Users size={18} /> },
@@ -82,37 +83,55 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
               Выйти
             </Link>
           </Button>
+          <LanguageSwitcher />
         </nav>
 
         {/* Mobile Navigation */}
         {isMobile && (
           <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Menu />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right">
-              <div className="flex flex-col gap-4 py-4">
-                {navItems.map((item, i) => (
-                  <Link
-                    key={i}
-                    to={item.href}
-                    className={`flex items-center gap-2 text-sm font-medium p-2 rounded-md transition-colors 
-                      ${location.pathname === item.href 
-                        ? "bg-primary/10 text-primary" 
-                        : "hover:bg-secondary text-muted-foreground"}`}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </Link>
-                ))}
-                <Button variant="outline" size="sm" asChild className="mt-4">
-                  <Link to="/" className="flex items-center gap-2">
-                    <LogOut size={18} />
-                    Выйти
-                  </Link>
+            <div className="flex items-center gap-2">
+              <LanguageSwitcher />
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Menu />
                 </Button>
+              </SheetTrigger>
+            </div>
+            <SheetContent side="right">
+              <div className="flex flex-col h-full py-4">
+                <div className="px-2 mb-6">
+                  <h2 className="text-lg font-semibold mb-1">Campus Room Reserve</h2>
+                </div>
+                <nav className="flex-1">
+                  {navItems.map((item, i) => (
+                    <Button
+                      key={i}
+                      variant="ghost"
+                      className="w-full justify-start mb-1"
+                      onClick={() => {
+                        navigate(link.path);
+                        setOpen(false);
+                      }}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </Button>
+                  ))}
+                </nav>
+                <div className="pt-4 border-t">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => {
+                      logout();
+                      navigate('/');
+                      setOpen(false);
+                    }}
+                  >
+                    <LogOut className="mr-2 h-5 w-5" />
+                    Выйти
+                  </Button>
+                </div>
               </div>
             </SheetContent>
           </Sheet>
