@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,18 +21,21 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
     switch (role) {
       case "student":
         return [
+          { label: "Главная", href: "/student/dashboard", icon: <Home size={18} /> },
           { label: "Профиль", href: "/student/profile", icon: <User size={18} /> },
           { label: "Бронирование", href: "/student/booking", icon: <Calendar size={18} /> },
           { label: "История", href: "/student/history", icon: <History size={18} /> },
         ];
       case "guard":
         return [
+          { label: "Главная", href: "/guard/dashboard", icon: <Home size={18} /> },
           { label: "Профиль", href: "/guard/profile", icon: <User size={18} /> },
           { label: "Текущие брони", href: "/guard/bookings", icon: <Calendar size={18} /> },
           { label: "Управление ключами", href: "/guard/keys", icon: <Clock size={18} /> },
         ];
       case "admin":
         return [
+          { label: "Главная", href: "/admin/dashboard", icon: <Home size={18} /> },
           { label: "Дашборд", href: "/admin/dashboard", icon: <Home size={18} /> },
           { label: "Управление бронями", href: "/admin/bookings", icon: <Calendar size={18} /> },
           { label: "Аудитории", href: "/admin/rooms", icon: <Building size={18} /> },

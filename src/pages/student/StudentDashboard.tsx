@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,6 +7,8 @@ import { Calendar, Clock, CalendarCheck, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
 import BookingCard from "@/components/BookingCard";
+import { useTranslation } from "@/context/LanguageContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 // Mock data
 const mockBookings = [
@@ -34,6 +37,7 @@ const mockBookings = [
 ];
 
 const StudentDashboard = () => {
+  const { t } = useTranslation();
   const [activeBookings, setActiveBookings] = useState([]);
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [pastBookings, setPastBookings] = useState([]);
@@ -69,18 +73,21 @@ const StudentDashboard = () => {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Ваш Личный Кабинет</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
             <p className="text-muted-foreground">
-              Управляйте своими бронированиями и создавайте новые
+              {t('dashboard.subtitle')}
             </p>
           </div>
           
-          <Button asChild className="self-start">
-            <Link to="/student/booking" className="flex items-center gap-2">
-              <Plus size={18} />
-              Забронировать помещение
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <Button asChild className="self-start">
+              <Link to="/student/booking" className="flex items-center gap-2">
+                <Plus size={18} />
+                {t('dashboard.bookRoom')}
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -88,10 +95,10 @@ const StudentDashboard = () => {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Calendar className="text-primary" size={20} />
-                Текущие брони
+                {t('dashboard.currentBookings')}
               </CardTitle>
               <CardDescription>
-                Активные бронирования помещений
+                {t('dashboard.currentBookingsDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -101,7 +108,7 @@ const StudentDashboard = () => {
                 ))
               ) : (
                 <p className="text-muted-foreground text-sm py-4 text-center">
-                  У вас нет активных бронирований
+                  {t('dashboard.noActiveBookings')}
                 </p>
               )}
             </CardContent>
@@ -111,10 +118,10 @@ const StudentDashboard = () => {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Clock className="text-primary" size={20} />
-                Предстоящие брони
+                {t('dashboard.upcomingBookings')}
               </CardTitle>
               <CardDescription>
-                Запланированные бронирования
+                {t('dashboard.upcomingBookingsDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -124,7 +131,7 @@ const StudentDashboard = () => {
                 ))
               ) : (
                 <p className="text-muted-foreground text-sm py-4 text-center">
-                  У вас нет предстоящих бронирований
+                  {t('dashboard.noUpcomingBookings')}
                 </p>
               )}
             </CardContent>
@@ -134,10 +141,10 @@ const StudentDashboard = () => {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <CalendarCheck className="text-primary" size={20} />
-                История бронирований
+                {t('dashboard.bookingHistory')}
               </CardTitle>
               <CardDescription>
-                Ваши прошлые бронирования
+                {t('dashboard.bookingHistoryDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -147,7 +154,7 @@ const StudentDashboard = () => {
                 ))
               ) : (
                 <p className="text-muted-foreground text-sm py-4 text-center">
-                  У вас нет прошлых бронирований
+                  {t('dashboard.noPastBookings')}
                 </p>
               )}
             </CardContent>
@@ -157,8 +164,8 @@ const StudentDashboard = () => {
         {/* Statistics Section */}
         <Tabs defaultValue="rooms" className="mt-6">
           <TabsList className="mb-4">
-            <TabsTrigger value="rooms">Популярные комнаты</TabsTrigger>
-            <TabsTrigger value="times">Доступные сейчас</TabsTrigger>
+            <TabsTrigger value="rooms">{t('dashboard.popularRooms')}</TabsTrigger>
+            <TabsTrigger value="times">{t('dashboard.availableNow')}</TabsTrigger>
           </TabsList>
           
           <TabsContent value="rooms">
@@ -178,7 +185,7 @@ const StudentDashboard = () => {
                       </p>
                       <div className="mt-2 flex items-center text-sm">
                         <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                          Доступно
+                          {t('dashboard.available')}
                         </span>
                       </div>
                     </div>
