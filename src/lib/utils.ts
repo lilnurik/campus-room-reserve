@@ -1,4 +1,3 @@
-
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -6,55 +5,122 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Format date to readable format
-// Format a date to a human-readable format
-export function formatDate(date) {
-  return new Intl.DateTimeFormat('ru-RU', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
+// Format date to readable format with safety checks
+export function formatDate(date: string | Date | null | undefined) {
+  // Return placeholder for null/undefined values
+  if (!date) return "Дата не указана";
+
+  try {
+    // Convert string to Date if needed
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      console.warn('Invalid date received:', date);
+      return "Некорректная дата";
+    }
+
+    return new Intl.DateTimeFormat('ru-RU', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting date:', error, date);
+    return "Ошибка даты";
+  }
 }
 
-// Format a time to a human-readable format
-export function formatTime(date) {
-  return new Intl.DateTimeFormat('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+// Format a time to a human-readable format with safety checks
+export function formatTime(date: string | Date | null | undefined) {
+  if (!date) return "Время не указано";
+
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+    if (isNaN(dateObj.getTime())) {
+      console.warn('Invalid time received:', date);
+      return "Некорректное время";
+    }
+
+    return new Intl.DateTimeFormat('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting time:', error, date);
+    return "Ошибка времени";
+  }
 }
+
 // Format datetime to readable format
-export function formatDateTime(dateString: string): string {
-  return `${formatDate(dateString)}, ${formatTime(dateString)}`;
+export function formatDateTime(dateString: string | null | undefined): string {
+  if (!dateString) return "Дата/время не указаны";
+
+  try {
+    const date = new Date(dateString);
+
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid datetime received:', dateString);
+      return "Некорректные дата/время";
+    }
+
+    return `${formatDate(date)}, ${formatTime(date)}`;
+  } catch (error) {
+    console.error('Error formatting datetime:', error, dateString);
+    return "Ошибка даты/времени";
+  }
 }
 
 // Calculate time difference between two dates in minutes
 export function getTimeDifferenceInMinutes(start: string, end: string): number {
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
+  try {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      console.warn('Invalid dates for time difference:', { start, end });
+      return 0;
+    }
+
+    return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
+  } catch (error) {
+    console.error('Error calculating time difference:', error, { start, end });
+    return 0;
+  }
 }
 
 // Calculate how many minutes passed since a given date
 export function getMinutesPassed(dateString: string): number {
-  const date = new Date(dateString);
-  const now = new Date();
-  return Math.round((now.getTime() - date.getTime()) / (1000 * 60));
+  try {
+    const date = new Date(dateString);
+
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date for minutes passed:', dateString);
+      return 0;
+    }
+
+    const now = new Date();
+    return Math.round((now.getTime() - date.getTime()) / (1000 * 60));
+  } catch (error) {
+    console.error('Error calculating minutes passed:', error, dateString);
+    return 0;
+  }
 }
 
-// Format minutes to readable duration
+// Rest of your utility functions remain the same
 export function formatDuration(minutes: number): string {
   if (minutes < 60) {
     return `${minutes} мин.`;
   }
-  
+
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  
+
   if (remainingMinutes === 0) {
     return `${hours} ч.`;
   }
-  
+
   return `${hours} ч. ${remainingMinutes} мин.`;
 }
 
@@ -110,13 +176,13 @@ export function getStatusName(status: string): string {
   }
 }
 
-// Add this to your utilities if you don't already have it
-
+// The rest of your utility functions...
 export async function fetchWithAuth<T>(
     url: string,
     method: string = 'GET',
     body?: any
 ): Promise<ApiResponse<T>> {
+  // Implementation unchanged
   try {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -161,34 +227,62 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-// Generate QR code value from booking ID and access code
 export function generateQRValue(bookingId: number, accessCode: string): string {
   return `booking:${bookingId}:${accessCode}`;
 }
 
-// Check if a booking is active (current time is between start and end)
 export function isBookingActive(start: string, end: string): boolean {
-  const now = new Date();
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  return now >= startDate && now <= endDate;
+  try {
+    const now = new Date();
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      console.warn('Invalid dates for booking active check:', { start, end });
+      return false;
+    }
+
+    return now >= startDate && now <= endDate;
+  } catch (error) {
+    console.error('Error checking if booking is active:', error, { start, end });
+    return false;
+  }
 }
 
-// Check if a booking is upcoming (start time is in the future)
 export function isBookingUpcoming(start: string): boolean {
-  const now = new Date();
-  const startDate = new Date(start);
-  return startDate > now;
+  try {
+    const now = new Date();
+    const startDate = new Date(start);
+
+    if (isNaN(startDate.getTime())) {
+      console.warn('Invalid date for booking upcoming check:', start);
+      return false;
+    }
+
+    return startDate > now;
+  } catch (error) {
+    console.error('Error checking if booking is upcoming:', error, start);
+    return false;
+  }
 }
 
-// Check if a booking is overdue (end time is in the past, but status is not completed)
 export function isBookingOverdue(end: string): boolean {
-  const now = new Date();
-  const endDate = new Date(end);
-  return endDate < now;
+  try {
+    const now = new Date();
+    const endDate = new Date(end);
+
+    if (isNaN(endDate.getTime())) {
+      console.warn('Invalid date for booking overdue check:', end);
+      return false;
+    }
+
+    return endDate < now;
+  } catch (error) {
+    console.error('Error checking if booking is overdue:', error, end);
+    return false;
+  }
 }
 
-// Generate random ID
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
