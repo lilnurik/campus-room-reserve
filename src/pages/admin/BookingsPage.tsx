@@ -157,9 +157,9 @@ const AdminBookingsPage = () => {
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`http://127.0.0.1:5000/api/admin/bookings/${selectedBooking}/approve`, {
+      const response = await fetch(`http://127.0.0.1:5000/api/admin/booking/${selectedBooking}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -199,7 +199,7 @@ const AdminBookingsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`http://127.0.0.1:5000/api/admin/bookings/${selectedBooking}/reject`, {
+      const response = await fetch(`http://127.0.0.1:5000/api/admin/booking/${selectedBooking}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -13,8 +13,8 @@ import {
   ValidateStudentIdResponseDto,
   ValidateAccessCodeDto
 } from "@/types/api";
-import { Booking, Room } from "@/context/BookingContext";
 
+// Interfaces
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -36,7 +36,6 @@ export interface UserProfileData {
   lastLogin: string;
 }
 
-
 export interface TimeSlot {
   id: string;
   start: string; // ISO timestamp
@@ -45,18 +44,21 @@ export interface TimeSlot {
 }
 
 export interface RoomAvailability {
-  roomId: number;
+  roomId: string;
   date: string;  // YYYY-MM-DD
   timeSlots: TimeSlot[];
 }
 
 export interface Room {
-  id: number;
+  id: string;
   name: string;
   category: string;
+  building?: string;
+  description?: string;
   capacity: number;
   status: string;
-  schedule: {
+  features?: string[];
+  schedule?: {
     from_date: string;
     until_date: string;
     type: string;
@@ -65,11 +67,12 @@ export interface Room {
 }
 
 export interface BookingRequest {
-  room_id: number;
-  start_time: string; // ISO timestamp
-  end_time: string;   // ISO timestamp
-  purpose: string;
-  attendees: number;
+  roomId: string;         // Room ID
+  date: string;           // YYYY-MM-DD
+  startTime: string;      // HH:MM
+  endTime: string;        // HH:MM
+  purpose: string;        // Purpose of booking
+  attendees: number;      // Number of attendees
 }
 
 export interface Booking {
@@ -87,28 +90,100 @@ export interface Booking {
   created_at: string;
 }
 
-
-// Base API URL - should be configured from environment variables in production
+// Use relative URLs for API endpoints when working with the proxy
 const API_BASE_URL = "";
 
-// Helper function for handling API responses
+// Enhanced helper function for handling API responses with detailed error logging
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+  try {
+    // Try to parse response as JSON
+    const contentType = response.headers.get("content-type");
+
+    if (contentType && contentType.includes("application/json")) {
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("API Error:", {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
+
+        // Extract error message from response
+        const errorMessage = data.message || data.error || data.msg || `Error ${response.status}: ${response.statusText}`;
+
+        return {
+          success: false,
+          error: errorMessage
+        };
+      }
+
+      return {
+        success: true,
+        data
+      };
+    } else {
+      // Handle non-JSON responses
+      const text = await response.text();
+      console.error("Non-JSON response:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: text
+      });
+
+      return {
+        success: false,
+        error: `Server returned non-JSON response (${response.status}): ${response.statusText}`
+      };
+    }
+  } catch (error) {
+    console.error("Error parsing response:", error);
     return {
       success: false,
-      error: errorData.message || errorData.error || `Error: ${response.status} ${response.statusText}`
+      error: "Failed to parse server response"
     };
   }
-
-  const data = await response.json();
-  return {
-    success: true,
-    data
-  };
 }
 
-// Generic fetch function with authentication
+// Function to test the booking API directly
+export const testBookingAPI = async () => {
+  const token = localStorage.getItem('authToken');
+
+  if (!token) {
+    console.error("No authentication token found");
+    return { success: false, error: "No authentication token" };
+  }
+
+  // Create a test booking with ISO-formatted dates
+  const testBooking = {
+    room_id: 1,
+    from_date: "2025-04-02T15:00:00.000Z",   // Full ISO format
+    until_date: "2025-04-02T16:30:00.000Z",  // Full ISO format
+    purpose: "API Testing",
+    attendees: 2
+  };
+
+  try {
+    const response = await fetch('/api/bookings/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(testBooking)
+    });
+
+    const data = await response.json();
+    console.log("API Test Response:", data);
+
+    return { success: response.ok, data, error: response.ok ? undefined : data.error };
+  } catch (error) {
+    console.error("API Test Error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+};
+
+// Improved fetch function with authentication and error handling
 async function fetchWithAuth<T>(
     endpoint: string,
     method: string = 'GET',
@@ -118,8 +193,14 @@ async function fetchWithAuth<T>(
     // Get the token from localStorage
     const token = localStorage.getItem('authToken');
 
-    // Base URL for the request - ensure endpoint starts with /
+    if (!token && !endpoint.includes('/api/auth/login') && !endpoint.includes('/api/auth/check-student-id')) {
+      console.warn('No auth token available - API call may fail:', endpoint);
+    }
+
+    // Remove duplicate forward slashes in URL
     const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
+
+    console.log(`Fetching ${method} ${url}`);
 
     // Create request headers
     const headers: Record<string, string> = {
@@ -130,12 +211,12 @@ async function fetchWithAuth<T>(
     // Add Authorization header if token exists
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      console.warn('No auth token available - some API calls may fail');
     }
 
-    // Log request info (for debugging)
-    console.log(`Fetching ${method} ${url}`);
+    // Log the request payload for debugging
+    if (body) {
+      console.log('Request payload:', JSON.stringify(body, null, 2));
+    }
 
     // Make the request
     const response = await fetch(url, {
@@ -144,26 +225,11 @@ async function fetchWithAuth<T>(
       body: body ? JSON.stringify(body) : undefined
     });
 
-    // Handle response
-    if (response.ok) {
-      const data = await response.json();
-      return { success: true, data };
-    } else {
-      // Handle auth errors specially
-      if (response.status === 401) {
-        console.error('Authentication error - token may be invalid or expired');
-        return {
-          success: false,
-          error: 'Authentication failed. Please log in again.'
-        };
-      }
+    // Log response status for debugging
+    console.log(`Response status: ${response.status}`);
 
-      // Handle other errors
-      return {
-        success: false,
-        error: `Error ${response.status}: ${response.statusText}`
-      };
-    }
+    // Handle response
+    return await handleResponse<T>(response);
   } catch (error) {
     console.error('Fetch error:', error);
     return {
@@ -195,7 +261,6 @@ export const authApi = {
         password: password
       }),
 
-  // Keep the old methods for backward compatibility
   registerStudent: (data: RegisterStudentDto) =>
       fetchWithAuth<LoginResponseDto>('/api/auth/register', 'POST', {
         username: data.studentId,
@@ -208,48 +273,34 @@ export const authApi = {
       }),
 
   getCurrentUserProfile: async (): Promise<ApiResponse<UserProfileData>> => {
-    try {
-      const response = await fetchWithAuth('/api/auth/me/profile');
-      return response;
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      return { success: false, error: 'Failed to fetch profile data' };
-    }
+    return fetchWithAuth<UserProfileData>('/api/auth/me/profile');
   },
 
   // Change password
   changePassword: async (oldPassword: string, newPassword: string): Promise<ApiResponse<{ message: string }>> => {
-    try {
-      const response = await fetchWithAuth('/api/auth/change-password', 'POST', {
-        old_password: oldPassword,
-        new_password: newPassword
-      });
-      return response;
-    } catch (error) {
-      console.error('Error changing password:', error);
-      return { success: false, error: 'Failed to change password' };
-    }
+    return fetchWithAuth<{ message: string }>('/api/auth/change-password', 'POST', {
+      old_password: oldPassword,
+      new_password: newPassword
+    });
   }
 };
 
-// Rest of the file stays the same
 // Rooms API
-
 export const roomsApi = {
   getAll: () =>
       fetchWithAuth<Room[]>('/api/rooms/'),
 
   getById: (id: string) =>
-      fetchWithAuth<Room>(`rooms/${id}`),
+      fetchWithAuth<Room>(`/api/rooms/${id}`),
 
   create: (room: RoomCreateDto) =>
-      fetchWithAuth<Room>('/rooms', 'POST', room),
+      fetchWithAuth<Room>('/api/rooms', 'POST', room),
 
   update: (id: string, updates: RoomUpdateDto) =>
-      fetchWithAuth<Room>(`/rooms/${id}`, 'PUT', updates),
+      fetchWithAuth<Room>(`/api/rooms/${id}`, 'PUT', updates),
 
   delete: (id: string) =>
-      fetchWithAuth<void>(`/rooms/${id}`, 'DELETE'),
+      fetchWithAuth<void>(`/api/rooms/${id}`, 'DELETE'),
 
   getRooms: async (): Promise<ApiResponse<Room[]>> => {
     return fetchWithAuth<Room[]>('/api/rooms/');
@@ -265,78 +316,109 @@ export const roomsApi = {
     return fetchWithAuth<RoomAvailability>(`/api/rooms/${roomId}/availability?date=${date}`);
   },
 
-  // Create a booking
-  createBooking: async (bookingData: BookingRequest): Promise<ApiResponse<{ id: string; message: string }>> => {
-    return fetchWithAuth<{ id: string; message: string }>('/api/bookings', 'POST', bookingData);
+  // Update the createBooking function in api.ts
+  // Update the createBooking function in api.ts
+  createBooking: async (bookingData: BookingRequest): Promise<ApiResponse<Booking>> => {
+    try {
+      // Get the full date components
+      const dateStr = bookingData.date; // YYYY-MM-DD
+
+      // Create full ISO timestamps
+      const startISO = new Date(`${dateStr}T${bookingData.startTime}:00Z`).toISOString();
+      const endISO = new Date(`${dateStr}T${bookingData.endTime}:00Z`).toISOString();
+
+      console.log("Creating booking with ISO dates:", {
+        startISO,
+        endISO
+      });
+
+      // Send with the field names from API documentation but using ISO formatted values
+      const apiBookingData = {
+        room_id: parseInt(bookingData.roomId),
+        start_time: startISO,  // Full ISO string
+        end_time: endISO,      // Full ISO string
+        purpose: bookingData.purpose,
+        attendees: bookingData.attendees
+      };
+
+      console.log("Sending to API:", apiBookingData);
+
+      return fetchWithAuth<Booking>('/api/bookings/', 'POST', apiBookingData);
+    } catch (error) {
+      console.error("Error preparing booking data:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to prepare booking data"
+      };
+    }
   }
-};
+  };
 
-
-// Do the same for all other API objects (bookingsApi, usersApi, etc.)
-// Make sure all paths include the /api prefix
 // Bookings API
 export const bookingsApi = {
   getAll: () =>
-      fetchWithAuth<Booking[]>('/bookings'),
+      fetchWithAuth<Booking[]>('/api/bookings/'),
 
   getById: (id: number) =>
-      fetchWithAuth<Booking>(`/bookings/${id}`),
+      fetchWithAuth<Booking>(`/api/bookings/${id}`),
 
-  getByUser: (userId: number) =>
-      fetchWithAuth<Booking[]>(`/bookings/user/${userId}`),
+  getByUser: () =>
+      fetchWithAuth<Booking[]>(`/api/bookings/user`),
 
   create: (booking: BookingCreateDto) =>
-      fetchWithAuth<Booking>('/bookings', 'POST', booking),
+      fetchWithAuth<Booking>('/api/bookings/', 'POST', booking),
 
   update: (id: number, updates: BookingUpdateDto) =>
-      fetchWithAuth<Booking>(`/bookings/${id}`, 'PUT', updates),
+      fetchWithAuth<Booking>(`/api/bookings/${id}`, 'PUT', updates),
 
-  confirm: (id: number) =>
-      fetchWithAuth<Booking>(`/bookings/${id}/confirm`, 'POST'),
+  approve: (id: number) =>
+      fetchWithAuth<Booking>(`/api/admin/bookings/${id}/approve`, 'POST'),
+
+  reject: (id: number) =>
+      fetchWithAuth<Booking>(`/api/admin/bookings/${id}/reject`, 'POST'),
 
   cancel: (id: number) =>
-      fetchWithAuth<Booking>(`/bookings/${id}/cancel`, 'POST'),
+      fetchWithAuth<Booking>(`/api/bookings/${id}/cancel`, 'POST'),
 
   issueKey: (id: number, accessCode: string) =>
-      fetchWithAuth<Booking>(`/bookings/${id}/issue-key`, 'POST', { access_code: accessCode }),
+      fetchWithAuth<Booking>(`/api/bookings/${id}/issue-key`, 'POST', { access_code: accessCode }),
 
   returnKey: (id: number) =>
-      fetchWithAuth<Booking>(`/bookings/${id}/return-key`, 'POST'),
+      fetchWithAuth<Booking>(`/api/bookings/${id}/return-key`, 'POST'),
 
   validateAccessCode: (data: ValidateAccessCodeDto) =>
-      fetchWithAuth<{valid: boolean}>('/bookings/validate-access-code', 'POST', data),
+      fetchWithAuth<{valid: boolean}>('/api/bookings/validate-access-code', 'POST', data),
 
   getUserBookings: () =>
-      fetchWithAuth<Booking[]>('/api/bookings/user-bookings'),
-
+      fetchWithAuth<Booking[]>('/api/bookings/user'),
 };
 
 // Users API
 export const usersApi = {
   getAll: () =>
-      fetchWithAuth<any[]>('/users'),
+      fetchWithAuth<any[]>('/api/admin/users'),
 
   getById: (id: number) =>
-      fetchWithAuth<any>(`/users/${id}`),
+      fetchWithAuth<any>(`/api/admin/users/${id}`),
 
   create: (user: UserCreateDto) =>
-      fetchWithAuth<any>('/users', 'POST', user),
+      fetchWithAuth<any>('/api/admin/users', 'POST', user),
 
   update: (id: number, updates: UserUpdateDto) =>
-      fetchWithAuth<any>(`/users/${id}`, 'PUT', updates),
+      fetchWithAuth<any>(`/api/admin/users/${id}`, 'PUT', updates),
 
   delete: (id: number) =>
-      fetchWithAuth<void>(`/users/${id}`, 'DELETE'),
+      fetchWithAuth<void>(`/api/admin/users/${id}`, 'DELETE'),
 
   changePassword: (id: number, data: {oldPassword: string, newPassword: string}) =>
-      fetchWithAuth<void>(`/users/${id}/change-password`, 'POST', data)
+      fetchWithAuth<void>(`/api/admin/users/${id}/change-password`, 'POST', data)
 };
 
 // Settings API
 export const settingsApi = {
   getAll: () =>
-      fetchWithAuth<Record<string, any>>('/settings'),
+      fetchWithAuth<Record<string, any>>('/api/settings'),
 
   update: (settings: Record<string, any>) =>
-      fetchWithAuth<Record<string, any>>('/settings', 'PUT', settings)
+      fetchWithAuth<Record<string, any>>('/api/settings', 'PUT', settings)
 };

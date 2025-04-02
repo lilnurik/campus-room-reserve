@@ -289,6 +289,7 @@ export const translations: Translations = {
       keyIssued: 'Key Issued',
       keyReturned: 'Key Returned',
       accessCode: 'Access Code',
+      viewDetails: 'View Details',
       status: {
         pending: 'Pending',
         confirmed: 'Confirmed',

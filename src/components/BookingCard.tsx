@@ -9,8 +9,8 @@ import { useNavigate } from "react-router-dom";
 // Status configuration for styling and labels
 const statusConfig = {
   pending: { label: "pending", variant: "outline", color: "text-amber-500" },
-  approved: { label: "approved", variant: "outline", color: "text-blue-500" },
-  rejected: { label: "rejected", variant: "outline", color: "text-red-500" },
+  approved: { label: "confirmed", variant: "outline", color: "text-blue-500" },
+  rejected: { label: "cancelled", variant: "outline", color: "text-red-500" },
   confirmed: { label: "confirmed", variant: "outline", color: "text-blue-500" },
   given: { label: "keyIssued", variant: "default", color: "text-green-500" },
   taken: { label: "completed", variant: "outline", color: "text-slate-500" }
@@ -41,7 +41,7 @@ const BookingCard = ({ booking }) => {
             <p className="text-sm text-muted-foreground">{booking.roomCategory || booking.building}</p>
           </div>
           <Badge variant={statusInfo.variant} className={statusInfo.color}>
-            {t(`bookings.status.${statusInfo.label}`)}
+            {t(`booking.status.${statusInfo.label}`)}
           </Badge>
         </div>
 
@@ -72,7 +72,7 @@ const BookingCard = ({ booking }) => {
                   variant="secondary"
                   onClick={() => setShowCode(!showCode)}
               >
-                {showCode ? t('bookings.hideCode') : t('bookings.showCode')}
+                {showCode ? t('booking.hideCode') : t('booking.showCode')}
               </Button>
             </div>
         )}
@@ -86,7 +86,7 @@ const BookingCard = ({ booking }) => {
               onClick={handleViewDetails}
           >
             <Eye size={14} />
-            {t('bookings.viewDetails')}
+            {t('booking.details')}
           </Button>
         </div>
       </div>

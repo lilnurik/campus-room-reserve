@@ -7,9 +7,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Clock, CalendarPlus, Search, Filter, Info, Users,
-  BookOpen, Loader2, CheckCircle, AlertCircle
+  BookOpen, Loader2, CheckCircle, AlertCircle, ChevronLeft, ChevronRight
 } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,14 +22,26 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { roomsApi, Room, TimeSlot, BookingRequest } from "@/services/api";
+import { roomsApi, Room, TimeSlot, BookingRequest, Booking } from "@/services/api";
 import { useTranslation } from "@/context/LanguageContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Helper functions
 const formatTime = (isoString: string) => {
-  const date = new Date(isoString);
-  return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  try {
+    // Parse the ISO string to get a Date object
+    const date = new Date(isoString);
+
+    // Format hours and minutes with leading zeros
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+
+    // Return in HH:MM format
+    return `${hours}:${minutes}`;
+  } catch (e) {
+    console.error("Error formatting time:", e, "Input:", isoString);
+    return "00:00";
+  }
 };
 
 const formatDate = (date: Date) => {
@@ -58,6 +70,16 @@ const BookingPage = () => {
   const [showBookingDialog, setShowBookingDialog] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
+  const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  // Pagination for rooms
+  const [currentPage, setCurrentPage] = useState(1);
+  const [roomsPerPage] = useState(6);
+  const indexOfLastRoom = currentPage * roomsPerPage;
+  const indexOfFirstRoom = indexOfLastRoom - roomsPerPage;
+  const currentRooms = filteredRooms.slice(indexOfFirstRoom, indexOfLastRoom);
+  const totalPages = Math.ceil(filteredRooms.length / roomsPerPage);
 
   // Categories for filtering
   const categories = [
@@ -66,6 +88,15 @@ const BookingPage = () => {
     { id: "laboratory", label: t("booking.labRooms") || "Лабораторные" },
     { id: "computer", label: t("booking.computerRooms") || "Компьютерные" }
   ];
+
+  // Check if the user is logged in
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      toast.error(t("common.authRequired") || "Требуется авторизация");
+      navigate('/login');
+    }
+  }, []);
 
   // Load rooms when component mounts
   useEffect(() => {
@@ -86,7 +117,7 @@ const BookingPage = () => {
             }
           }
         } else {
-          toast.error(t("booking.errorLoadingRooms") || "Ошибка загрузки аудиторий");
+          toast.error(response.error || t("booking.errorLoadingRooms") || "Ошибка загрузки аудиторий");
         }
       } catch (error) {
         console.error('Error loading rooms:', error);
@@ -121,6 +152,7 @@ const BookingPage = () => {
     }
 
     setFilteredRooms(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [rooms, activeCategory, searchQuery]);
 
   // Load time slots when date changes or room is selected
@@ -143,7 +175,7 @@ const BookingPage = () => {
         const availableSlots = response.data.timeSlots.filter(slot => slot.isAvailable);
         setAvailableTimeSlots(availableSlots);
       } else {
-        toast.error(t("booking.errorLoadingAvailability") || "Ошибка загрузки расписания");
+        toast.error(response.error || t("booking.errorLoadingAvailability") || "Ошибка загрузки расписания");
       }
     } catch (error) {
       console.error('Error loading time slots:', error);
@@ -169,27 +201,50 @@ const BookingPage = () => {
     }
 
     setIsBooking(true);
-
-    const bookingData: BookingRequest = {
-      roomId: selectedRoom.id,
-      date: formatDate(date),
-      startTime: formatTime(selectedTimeSlot.start),
-      endTime: formatTime(selectedTimeSlot.end),
-      purpose: bookingPurpose,
-      attendees: attendees
-    };
+    setBookingError(null);
 
     try {
+      // Extract just the time parts (HH:MM) without any ISO date formatting
+      const startTime = formatTime(selectedTimeSlot.start);
+      const endTime = formatTime(selectedTimeSlot.end);
+
+      // Format date as YYYY-MM-DD
+      const dateString = format(date, 'yyyy-MM-dd');
+
+      // Log what we're sending
+      console.log("Booking details:", {
+        room: selectedRoom.name,
+        date: dateString,
+        startTime,
+        endTime,
+        purpose: bookingPurpose,
+        attendees
+      });
+
+      const bookingData: BookingRequest = {
+        roomId: selectedRoom.id,
+        date: dateString,
+        startTime: startTime,
+        endTime: endTime,
+        purpose: bookingPurpose,
+        attendees: attendees
+      };
+
       const response = await roomsApi.createBooking(bookingData);
-      if (response.success) {
+      if (response.success && response.data) {
         setBookingConfirmed(true);
+        setCreatedBooking(response.data);
         toast.success(t("booking.bookingSuccess") || "Бронирование успешно создано");
       } else {
-        toast.error(response.error || t("booking.bookingFailed") || "Ошибка при создании бронирования");
+        const errorMessage = response.error || t("booking.bookingFailed") || "Ошибка при создании бронирования";
+        setBookingError(errorMessage);
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error('Error creating booking:', error);
-      toast.error(t("booking.bookingFailed") || "Ошибка при создании бронирования");
+      const errorMessage = error instanceof Error ? error.message : t("booking.bookingFailed") || "Ошибка при создании бронирования";
+      setBookingError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsBooking(false);
     }
@@ -209,9 +264,28 @@ const BookingPage = () => {
     setSelectedTimeSlot(null);
     setBookingPurpose("");
     setAttendees(1);
+    setCreatedBooking(null);
+    setBookingError(null);
 
     // Navigate back to dashboard
     navigate('/student/dashboard');
+  };
+
+  // Pagination controls
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToPage = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
   };
 
   return (
@@ -237,12 +311,14 @@ const BookingPage = () => {
                     onSelect={handleDateSelect}
                     className="rounded-md border"
                     disabled={(date) => {
-                      // Disable dates in the past or more than 30 days in the future
+                      // Disable dates in the past or more than 7 days in the future
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
 
-                      const maxDate = addDays(today, 30);
-                      return date < today || date > maxDate;
+                      // Next week's limit
+                      const nextWeek = addDays(today, 7);
+
+                      return date < today || date > nextWeek;
                     }}
                     locale={ru}
                 />
@@ -289,9 +365,9 @@ const BookingPage = () => {
                           <Loader2 className="h-8 w-8 animate-spin text-primary" />
                           <span className="ml-2">{t("common.loading") || "Загрузка..."}</span>
                         </div>
-                    ) : filteredRooms.length > 0 ? (
+                    ) : currentRooms.length > 0 ? (
                         <div className="space-y-4">
-                          {filteredRooms.map(room => (
+                          {currentRooms.map(room => (
                               <Card
                                   key={room.id}
                                   className={`cursor-pointer transition-colors hover:bg-accent ${selectedRoom?.id === room.id ? 'border-primary' : ''}`}
@@ -332,6 +408,39 @@ const BookingPage = () => {
                                 </CardContent>
                               </Card>
                           ))}
+
+                          {/* Pagination controls */}
+                          {filteredRooms.length > roomsPerPage && (
+                              <div className="flex items-center justify-center gap-2 mt-6">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={prevPage}
+                                    disabled={currentPage === 1}
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                    <Button
+                                        key={page}
+                                        variant={currentPage === page ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => goToPage(page)}
+                                        className="h-8 w-8 p-0"
+                                    >
+                                      {page}
+                                    </Button>
+                                ))}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={nextPage}
+                                    disabled={currentPage === totalPages}
+                                >
+                                  <ChevronRight className="h-4 w-4" />
+                                </Button>
+                              </div>
+                          )}
                         </div>
                     ) : (
                         <div className="text-center py-8 text-muted-foreground">
@@ -364,7 +473,7 @@ const BookingPage = () => {
                   ) : availableTimeSlots.length > 0 ? (
                       <div className="space-y-4">
                         <RadioGroup
-                            value={selectedTimeSlot?.id}
+                            value={selectedTimeSlot?.id || ""}
                             onValueChange={(value) => {
                               const slot = availableTimeSlots.find(slot => slot.id === value);
                               setSelectedTimeSlot(slot || null);
@@ -412,7 +521,11 @@ const BookingPage = () => {
         </div>
 
         {/* Booking confirmation dialog */}
-        <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
+        <Dialog open={showBookingDialog} onOpenChange={(open) => {
+          if (!open && !bookingConfirmed) {
+            setShowBookingDialog(false);
+          }
+        }}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>
@@ -438,7 +551,9 @@ const BookingPage = () => {
                     </h3>
                     <p className="text-muted-foreground">
                       {t("booking.bookingReference") || "Номер бронирования"}:
-                      <span className="font-mono ml-1">BK-{Math.floor(Math.random() * 10000)}</span>
+                      <span className="font-mono ml-1">
+                          {createdBooking ? `BK-${createdBooking.id}` : `BK-${Math.floor(Math.random() * 10000)}`}
+                      </span>
                     </p>
                   </div>
 
@@ -464,6 +579,12 @@ const BookingPage = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{t("booking.attendees") || "Количество участников"}:</span>
                       <span className="font-medium">{attendees}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t("booking.status") || "Статус"}:</span>
+                      <span className="font-medium text-yellow-600">
+                          {t("booking.pendingApproval") || "Ожидает подтверждения"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -520,6 +641,13 @@ const BookingPage = () => {
                       </p>
                     </div>
                   </div>
+
+                  {bookingError && (
+                      <div className="bg-destructive/10 border border-destructive text-destructive p-3 rounded-md text-sm">
+                        <AlertCircle className="h-4 w-4 inline-block mr-2" />
+                        {bookingError}
+                      </div>
+                  )}
                 </div>
             )}
 

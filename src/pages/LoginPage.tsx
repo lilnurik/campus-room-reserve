@@ -48,7 +48,7 @@ const LoginPage = () => {
         if (response.data.role === 'admin') {
           navigate('/admin/dashboard');
         } else if (response.data.role === 'security') {
-          navigate('/security/dashboard');
+          navigate('/guard/dashboard');
         } else {
           navigate('/student/dashboard');
         }
