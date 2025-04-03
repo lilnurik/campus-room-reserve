@@ -9,7 +9,7 @@ import {
   Clock, CalendarPlus, Search, Filter, Info, Users,
   BookOpen, Loader2, CheckCircle, AlertCircle, ChevronLeft, ChevronRight
 } from "lucide-react";
-import { format, addDays, parseISO } from "date-fns";
+import { format, addDays, parseISO, endOfWeek } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,14 +29,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // Helper functions
 const formatTime = (isoString: string) => {
   try {
-    // Parse the ISO string to get a Date object
     const date = new Date(isoString);
-
-    // Format hours and minutes with leading zeros
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-
-    // Return in HH:MM format
     return `${hours}:${minutes}`;
   } catch (e) {
     console.error("Error formatting time:", e, "Input:", isoString);
@@ -75,7 +70,7 @@ const BookingPage = () => {
 
   // Pagination for rooms
   const [currentPage, setCurrentPage] = useState(1);
-  const [roomsPerPage] = useState(6);
+  const [roomsPerPage] = useState(4); // Reduced from 6 to 4 for better mobile view
   const indexOfLastRoom = currentPage * roomsPerPage;
   const indexOfFirstRoom = indexOfLastRoom - roomsPerPage;
   const currentRooms = filteredRooms.slice(indexOfFirstRoom, indexOfLastRoom);
@@ -211,16 +206,6 @@ const BookingPage = () => {
       // Format date as YYYY-MM-DD
       const dateString = format(date, 'yyyy-MM-dd');
 
-      // Log what we're sending
-      console.log("Booking details:", {
-        room: selectedRoom.name,
-        date: dateString,
-        startTime,
-        endTime,
-        purpose: bookingPurpose,
-        attendees
-      });
-
       const bookingData: BookingRequest = {
         roomId: selectedRoom.id,
         date: dateString,
@@ -255,6 +240,11 @@ const BookingPage = () => {
       setDate(newDate);
       // Reset selected time slot when date changes
       setSelectedTimeSlot(null);
+
+      // If a room is selected, load time slots for the new date
+      if (selectedRoom) {
+        loadTimeSlots(selectedRoom.id, formatDate(newDate));
+      }
     }
   };
 
@@ -290,19 +280,103 @@ const BookingPage = () => {
 
   return (
       <PageLayout role="student">
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t("booking.title") || "Бронирование аудитории"}</h1>
-            <p className="text-muted-foreground">
+        <div className="space-y-6 pb-10">
+          {/* Page Title */}
+          <div className="px-2 sm:px-0">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{t("booking.title") || "Бронирование аудитории"}</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {t("booking.subtitle") || "Выберите дату, время и аудиторию для бронирования"}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="col-span-1">
-              <CardHeader>
-                <CardTitle>{t("booking.selectDate") || "Выберите дату"}</CardTitle>
-                <CardDescription>{t("booking.selectDateDesc") || "Выберите день для бронирования"}</CardDescription>
+          {/* Time Slot Selection - Now at the top and always visible */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg sm:text-xl">
+                {t("booking.selectTime") || "Выберите время"}
+                {selectedRoom && <span className="font-normal text-base ml-1">: {selectedRoom.name}</span>}
+              </CardTitle>
+              <CardDescription>
+                {date
+                    ? `${t("booking.availableTimesFor") || "Доступное время на"} ${format(date, 'PP', { locale: ru })}`
+                    : t("booking.selectDateBelow") || "Выберите дату ниже, чтобы увидеть доступные слоты"}
+                {!selectedRoom && <span className="block text-amber-500 mt-1">{t("booking.selectRoomMessage") || "Выберите аудиторию ниже, чтобы увидеть доступные слоты"}</span>}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingTimeSlots ? (
+                  <div className="flex justify-center items-center h-24 sm:h-32">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="ml-2 text-sm">{t("common.loading") || "Загрузка..."}</span>
+                  </div>
+              ) : availableTimeSlots.length > 0 ? (
+                  <div>
+                    <RadioGroup
+                        value={selectedTimeSlot?.id || ""}
+                        onValueChange={(value) => {
+                          const slot = availableTimeSlots.find(slot => slot.id === value);
+                          setSelectedTimeSlot(slot || null);
+                        }}
+                    >
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
+                        {availableTimeSlots.map(slot => (
+                            <div key={slot.id} className="flex items-center space-x-2 bg-background hover:bg-accent rounded-md p-2 transition-colors">
+                              <RadioGroupItem value={slot.id} id={slot.id} />
+                              <Label htmlFor={slot.id} className="cursor-pointer text-sm">
+                                {formatTime(slot.start)} - {formatTime(slot.end)}
+                              </Label>
+                            </div>
+                        ))}
+                      </div>
+                    </RadioGroup>
+                  </div>
+              ) : (
+                  <div className="text-center py-5 px-3 text-muted-foreground bg-background rounded-md">
+                    <AlertCircle className="h-5 w-5 mx-auto mb-2" />
+                    <p className="text-sm">
+                      {!selectedRoom
+                          ? (t("booking.selectRoomToSeeSlots") || "Выберите аудиторию, чтобы увидеть доступные слоты")
+                          : (t("booking.noAvailableTimeSlots") || "Нет доступных временных слотов на выбранную дату")}
+                    </p>
+                    {selectedRoom && (
+                        <p className="text-xs mt-1">{t("booking.tryAnotherDay") || "Пожалуйста, выберите другой день"}</p>
+                    )}
+                  </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2 border-t pt-4 pb-2">
+              <div>
+                {selectedTimeSlot && (
+                    <Badge variant="outline" className="text-sm">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {formatTime(selectedTimeSlot.start)} - {formatTime(selectedTimeSlot.end)}
+                    </Badge>
+                )}
+                {selectedRoom && (
+                    <Badge variant="outline" className="text-sm ml-0 mt-2 sm:ml-2 sm:mt-0">
+                      <Info className="h-3 w-3 mr-1" />
+                      {selectedRoom.name}
+                    </Badge>
+                )}
+              </div>
+              <Button
+                  className="w-full sm:w-auto"
+                  disabled={!selectedTimeSlot || !selectedRoom}
+                  onClick={() => setShowBookingDialog(true)}
+              >
+                <CalendarPlus className="h-4 w-4 mr-2" />
+                {t("booking.bookRoom") || "Забронировать аудиторию"}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* Calendar and Room Selection - Now in a flex container for better responsiveness */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Calendar - Full width on mobile, sidebar on desktop */}
+            <Card className="w-full lg:w-80 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{t("booking.selectDate") || "Выберите дату"}</CardTitle>
+                <CardDescription className="text-sm">{t("booking.selectDateDesc") || "Выберите день для бронирования"}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Calendar
@@ -311,24 +385,22 @@ const BookingPage = () => {
                     onSelect={handleDateSelect}
                     className="rounded-md border"
                     disabled={(date) => {
-                      // Disable dates in the past or more than 7 days in the future
+                      // Disable dates in the past or beyond the current week
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
-
-                      // Next week's limit
-                      const nextWeek = addDays(today, 7);
-
-                      return date < today || date > nextWeek;
+                      const endOfCurrentWeek = endOfWeek(today, { weekStartsOn: 1 });
+                      return date < today || date > endOfCurrentWeek;
                     }}
                     locale={ru}
                 />
               </CardContent>
             </Card>
 
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>{t("booking.availableRooms") || "Доступные аудитории"}</CardTitle>
-                <CardDescription>
+            {/* Room Selection - Now takes remaining space */}
+            <Card className="flex-1 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{t("booking.availableRooms") || "Доступные аудитории"}</CardTitle>
+                <CardDescription className="text-sm">
                   {date ? (
                       `${t("booking.availableRoomsFor") || "Доступные аудитории на"} ${format(date, 'PP', { locale: ru })}`
                   ) : (
@@ -337,8 +409,9 @@ const BookingPage = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="mb-4 flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
+                {/* Search input and filter tabs */}
+                <div className="mb-4 space-y-3">
+                  <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder={t("booking.searchRooms") || "Поиск аудиторий..."}
@@ -348,49 +421,61 @@ const BookingPage = () => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                   </div>
+
+                  <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
+                    <TabsList className="mb-2 w-full h-auto flex flex-wrap justify-start">
+                      {categories.map(category => (
+                          <TabsTrigger
+                              key={category.id}
+                              value={category.id}
+                              className="text-xs sm:text-sm py-1.5 px-2 h-auto flex-grow sm:flex-grow-0"
+                          >
+                            {category.label}
+                          </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
                 </div>
 
-                <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-                  <TabsList className="mb-4 flex overflow-auto">
-                    {categories.map(category => (
-                        <TabsTrigger key={category.id} value={category.id}>
-                          {category.label}
-                        </TabsTrigger>
-                    ))}
-                  </TabsList>
-
-                  <div className="space-y-4">
-                    {isLoadingRooms ? (
-                        <div className="flex justify-center items-center h-40">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                          <span className="ml-2">{t("common.loading") || "Загрузка..."}</span>
-                        </div>
-                    ) : currentRooms.length > 0 ? (
-                        <div className="space-y-4">
+                {/* Room listing */}
+                <div className="space-y-3">
+                  {isLoadingRooms ? (
+                      <div className="flex justify-center items-center h-40">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <span className="ml-2">{t("common.loading") || "Загрузка..."}</span>
+                      </div>
+                  ) : currentRooms.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-1 gap-3">
                           {currentRooms.map(room => (
                               <Card
                                   key={room.id}
                                   className={`cursor-pointer transition-colors hover:bg-accent ${selectedRoom?.id === room.id ? 'border-primary' : ''}`}
                                   onClick={() => handleRoomSelect(room)}
                               >
-                                <CardContent className="p-4">
-                                  <div className="flex justify-between items-center">
-                                    <div>
-                                      <h3 className="font-medium">{room.name}</h3>
-                                      <p className="text-sm text-muted-foreground">
+                                <CardContent className="p-3 sm:p-4">
+                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                                    <div className="flex-1">
+                                      <h3 className="font-medium text-sm sm:text-base">{room.name}</h3>
+                                      <p className="text-xs sm:text-sm text-muted-foreground">
                                         {room.category}, {t("rooms.capacity") || "Вместимость"}: {room.capacity}
                                       </p>
                                       {room.building && (
-                                          <p className="text-sm text-muted-foreground">{room.building}</p>
+                                          <p className="text-xs sm:text-sm text-muted-foreground">{room.building}</p>
                                       )}
                                     </div>
-                                    <div className="flex gap-2">
-                                      <Button variant="outline" size="sm">
-                                        <Info className="h-4 w-4 mr-1" />
+                                    <div className="flex flex-row sm:flex-col md:flex-row gap-2 justify-end">
+                                      <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 text-xs px-2 sm:px-3"
+                                      >
+                                        <Info className="h-3 w-3 mr-1" />
                                         {t("booking.details") || "Детали"}
                                       </Button>
                                       <Button
                                           size="sm"
+                                          className="h-8 text-xs px-2 sm:px-3"
                                           variant={selectedRoom?.id === room.id ? "default" : "outline"}
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -398,9 +483,9 @@ const BookingPage = () => {
                                           }}
                                       >
                                         {selectedRoom?.id === room.id ? (
-                                            <><CheckCircle className="h-4 w-4 mr-1" /> {t("booking.selected") || "Выбрано"}</>
+                                            <><CheckCircle className="h-3 w-3 mr-1" /> {t("booking.selected") || "Выбрано"}</>
                                         ) : (
-                                            <><CalendarPlus className="h-4 w-4 mr-1" /> {t("booking.select") || "Выбрать"}</>
+                                            <><CalendarPlus className="h-3 w-3 mr-1" /> {t("booking.select") || "Выбрать"}</>
                                         )}
                                       </Button>
                                     </div>
@@ -408,116 +493,66 @@ const BookingPage = () => {
                                 </CardContent>
                               </Card>
                           ))}
+                        </div>
 
-                          {/* Pagination controls */}
-                          {filteredRooms.length > roomsPerPage && (
-                              <div className="flex items-center justify-center gap-2 mt-6">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={prevPage}
-                                    disabled={currentPage === 1}
-                                >
-                                  <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                    <Button
-                                        key={page}
-                                        variant={currentPage === page ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => goToPage(page)}
-                                        className="h-8 w-8 p-0"
-                                    >
-                                      {page}
-                                    </Button>
-                                ))}
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={nextPage}
-                                    disabled={currentPage === totalPages}
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </Button>
+                        {/* Pagination controls - Simplified for mobile */}
+                        {filteredRooms.length > roomsPerPage && (
+                            <div className="flex items-center justify-center gap-1 sm:gap-2 mt-4">
+                              <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={prevPage}
+                                  disabled={currentPage === 1}
+                                  className="h-8 w-8 p-0"
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </Button>
+
+                              {/* Show limited page numbers on mobile */}
+                              <div className="flex gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(page => {
+                                      // On mobile, show limited pages around current
+                                      if (window.innerWidth < 640) {
+                                        return page === 1 || page === totalPages ||
+                                            (page >= currentPage - 1 && page <= currentPage + 1);
+                                      }
+                                      return true;
+                                    })
+                                    .map((page) => (
+                                        <Button
+                                            key={page}
+                                            variant={currentPage === page ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => goToPage(page)}
+                                            className="h-8 w-8 p-0 text-xs"
+                                        >
+                                          {page}
+                                        </Button>
+                                    ))}
                               </div>
-                          )}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          {t("booking.noRoomsFound") || "Аудитории не найдены"}
-                        </div>
-                    )}
-                  </div>
-                </Tabs>
+
+                              <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={nextPage}
+                                  disabled={currentPage === totalPages}
+                                  className="h-8 w-8 p-0"
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                        )}
+                      </>
+                  ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="text-sm">{t("booking.noRoomsFound") || "Аудитории не найдены"}</p>
+                      </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
-
-          {/* Time slot selection */}
-          {selectedRoom && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {t("booking.selectTime") || "Выберите время"}: {selectedRoom.name}
-                  </CardTitle>
-                  <CardDescription>
-                    {t("booking.availableTimesFor") || "Доступное время на"} {date ? format(date, 'PP', { locale: ru }) : ''}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingTimeSlots ? (
-                      <div className="flex justify-center items-center h-40">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <span className="ml-2">{t("common.loading") || "Загрузка..."}</span>
-                      </div>
-                  ) : availableTimeSlots.length > 0 ? (
-                      <div className="space-y-4">
-                        <RadioGroup
-                            value={selectedTimeSlot?.id || ""}
-                            onValueChange={(value) => {
-                              const slot = availableTimeSlots.find(slot => slot.id === value);
-                              setSelectedTimeSlot(slot || null);
-                            }}
-                        >
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {availableTimeSlots.map(slot => (
-                                <div key={slot.id} className="flex items-center space-x-2">
-                                  <RadioGroupItem value={slot.id} id={slot.id} />
-                                  <Label htmlFor={slot.id} className="cursor-pointer">
-                                    {formatTime(slot.start)} - {formatTime(slot.end)}
-                                  </Label>
-                                </div>
-                            ))}
-                          </div>
-                        </RadioGroup>
-                      </div>
-                  ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <AlertCircle className="h-6 w-6 mx-auto mb-2" />
-                        <p>{t("booking.noAvailableTimeSlots") || "Нет доступных временных слотов на выбранную дату"}</p>
-                        <p className="text-sm">{t("booking.tryAnotherDay") || "Пожалуйста, выберите другой день"}</p>
-                      </div>
-                  )}
-                </CardContent>
-                <CardFooter className="justify-between">
-                  <div>
-                    {selectedTimeSlot && (
-                        <Badge variant="outline" className="text-sm">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {formatTime(selectedTimeSlot.start)} - {formatTime(selectedTimeSlot.end)}
-                        </Badge>
-                    )}
-                  </div>
-                  <Button
-                      disabled={!selectedTimeSlot}
-                      onClick={() => setShowBookingDialog(true)}
-                  >
-                    <CalendarPlus className="h-4 w-4 mr-2" />
-                    {t("booking.bookRoom") || "Забронировать аудиторию"}
-                  </Button>
-                </CardFooter>
-              </Card>
-          )}
         </div>
 
         {/* Booking confirmation dialog */}
@@ -526,9 +561,9 @@ const BookingPage = () => {
             setShowBookingDialog(false);
           }
         }}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="max-w-[95vw] sm:max-w-[500px] p-4 sm:p-6 rounded-lg overflow-y-auto max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-xl">
                 {bookingConfirmed
                     ? (t("booking.bookingConfirmed") || "Бронирование подтверждено")
                     : (t("booking.confirmBooking") || "Подтверждение бронирования")}
@@ -541,7 +576,7 @@ const BookingPage = () => {
             </DialogHeader>
 
             {bookingConfirmed ? (
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-2">
                   <div className="flex flex-col items-center justify-center space-y-2 text-center">
                     <div className="rounded-full bg-primary/10 p-3">
                       <CheckCircle className="h-8 w-8 text-primary" />
@@ -549,15 +584,15 @@ const BookingPage = () => {
                     <h3 className="font-medium text-lg">
                       {t("booking.bookingSuccessTitle") || "Бронирование успешно создано"}
                     </h3>
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground text-sm">
                       {t("booking.bookingReference") || "Номер бронирования"}:
                       <span className="font-mono ml-1">
-                          {createdBooking ? `BK-${createdBooking.id}` : `BK-${Math.floor(Math.random() * 10000)}`}
-                      </span>
+                    {createdBooking ? `BK-${createdBooking.id}` : `BK-${Math.floor(Math.random() * 10000)}`}
+                  </span>
                     </p>
                   </div>
 
-                  <div className="border rounded-md p-4 space-y-2">
+                  <div className="border rounded-md p-3 space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{t("booking.room") || "Аудитория"}:</span>
                       <span className="font-medium">{selectedRoom?.name}</span>
@@ -583,21 +618,21 @@ const BookingPage = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{t("booking.status") || "Статус"}:</span>
                       <span className="font-medium text-yellow-600">
-                          {t("booking.pendingApproval") || "Ожидает подтверждения"}
-                      </span>
+                    {t("booking.pendingApproval") || "Ожидает подтверждения"}
+                  </span>
                     </div>
                   </div>
                 </div>
             ) : (
-                <div className="space-y-4 py-4">
-                  <div className="border rounded-md p-4 space-y-3">
+                <div className="space-y-3 py-2">
+                  <div className="border rounded-md p-3 space-y-3">
                     <div>
                       <p className="text-sm font-medium mb-1">{t("booking.selectedRoom") || "Выбранная аудитория"}:</p>
-                      <p>{selectedRoom?.name} ({selectedRoom?.category})</p>
+                      <p className="text-sm">{selectedRoom?.name} ({selectedRoom?.category})</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium mb-1">{t("booking.selectedDateTime") || "Выбранные дата и время"}:</p>
-                      <p>
+                      <p className="text-sm">
                         {date ? format(date, 'PP', { locale: ru }) : ''},
                         {selectedTimeSlot ? ` ${formatTime(selectedTimeSlot.start)} - ${formatTime(selectedTimeSlot.end)}` : ''}
                       </p>
@@ -606,18 +641,19 @@ const BookingPage = () => {
 
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <Label htmlFor="booking-purpose">{t("booking.bookingPurpose") || "Цель бронирования"}*</Label>
+                      <Label htmlFor="booking-purpose" className="text-sm">{t("booking.bookingPurpose") || "Цель бронирования"}*</Label>
                       <Textarea
                           id="booking-purpose"
                           placeholder={t("booking.enterPurpose") || "Введите цель бронирования..."}
                           value={bookingPurpose}
                           onChange={(e) => setBookingPurpose(e.target.value)}
                           required
+                          className="resize-none min-h-[80px]"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="attendees">{t("booking.attendees") || "Количество участников"}*</Label>
+                      <Label htmlFor="attendees" className="text-sm">{t("booking.attendees") || "Количество участников"}*</Label>
                       <div className="flex gap-2 items-center">
                         <Select
                             value={attendees.toString()}
@@ -651,21 +687,29 @@ const BookingPage = () => {
                 </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-4">
               {bookingConfirmed ? (
-                  <Button onClick={handleBookingFinished}>
+                  <Button
+                      onClick={handleBookingFinished}
+                      className="w-full sm:w-auto"
+                  >
                     {t("booking.returnToDashboard") || "Вернуться на главную"}
                   </Button>
               ) : (
                   <>
                     <DialogClose asChild>
-                      <Button variant="outline" disabled={isBooking}>
+                      <Button
+                          variant="outline"
+                          disabled={isBooking}
+                          className="w-full sm:w-auto order-2 sm:order-1"
+                      >
                         {t("common.cancel") || "Отмена"}
                       </Button>
                     </DialogClose>
                     <Button
                         onClick={handleBookRoom}
                         disabled={isBooking || !bookingPurpose || attendees <= 0}
+                        className="w-full sm:w-auto order-1 sm:order-2"
                     >
                       {isBooking ? (
                           <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t("common.loading") || "Загрузка..."}</>

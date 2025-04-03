@@ -227,10 +227,10 @@ const ProfilePage = () => {
                     <div className="space-y-2">
                       <h3 className="font-medium">{t('profile.security') || 'Безопасность'}</h3>
                       <div className="border rounded-md">
-                        <div className="flex items-center justify-between p-4">
-                          <div className="flex items-center gap-3">
-                            <Key className="h-5 w-5 text-muted-foreground" />
-                            <div>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 gap-3">
+                          <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <Key className="h-5 w-5 min-w-5 text-muted-foreground" />
+                            <div className="w-full sm:w-auto">
                               <p className="font-medium">{t('profile.changePassword') || 'Сменить пароль'}</p>
                               <p className="text-sm text-muted-foreground">
                                 {t('profile.changePasswordDesc') || 'Обновить ваш пароль для безопасности аккаунта'}
@@ -240,6 +240,7 @@ const ProfilePage = () => {
                           <Button
                               variant="outline"
                               size="sm"
+                              className="w-full sm:w-auto mt-2 sm:mt-0"
                               disabled={isChangingPassword}
                               onClick={handlePasswordDialogOpen}
                           >
@@ -260,55 +261,66 @@ const ProfilePage = () => {
 
         {/* Password Change Dialog */}
         <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-[425px] p-4 sm:p-6">
+            <DialogHeader className="mb-2">
               <DialogTitle>{t('profile.changePassword') || 'Изменить пароль'}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-2 sm:py-4 px-1 sm:px-2">
               {passwordError && (
                   <div className="bg-destructive/10 p-3 rounded-md text-sm text-destructive">
                     {passwordError}
                   </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="old-password">{t('profile.oldPassword') || 'Текущий пароль'}</Label>
+                <Label htmlFor="old-password" className="text-sm sm:text-base">
+                  {t('profile.oldPassword') || 'Текущий пароль'}
+                </Label>
                 <Input
                     id="old-password"
                     type="password"
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
+                    className="h-9 sm:h-10"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-password">{t('profile.newPassword') || 'Новый пароль'}</Label>
+                <Label htmlFor="new-password" className="text-sm sm:text-base">
+                  {t('profile.newPassword') || 'Новый пароль'}
+                </Label>
                 <Input
                     id="new-password"
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-9 sm:h-10"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">{t('profile.confirmPassword') || 'Подтвердите пароль'}</Label>
+                <Label htmlFor="confirm-password" className="text-sm sm:text-base">
+                  {t('profile.confirmPassword') || 'Подтвердите пароль'}
+                </Label>
                 <Input
                     id="confirm-password"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="h-9 sm:h-10"
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2 mt-2 sm:mt-4 px-1 sm:px-2">
               <Button
                   variant="outline"
                   onClick={() => setPasswordDialogOpen(false)}
                   disabled={isChangingPassword}
+                  className="w-full sm:w-auto order-2 sm:order-1"
               >
                 {t('common.cancel') || 'Отмена'}
               </Button>
               <Button
                   onClick={handlePasswordChange}
                   disabled={isChangingPassword}
+                  className="w-full sm:w-auto order-1 sm:order-2"
               >
                 {isChangingPassword ?
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('common.loading') || 'Загрузка...'}</> :

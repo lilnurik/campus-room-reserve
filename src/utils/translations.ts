@@ -45,6 +45,9 @@ export const translations: Translations = {
       security: "Безопасность",
       changePassword: "Сменить пароль",
       changePasswordDesc: "Обновить ваш пароль для безопасности аккаунта",
+      oldPassword: "Старый пароль",
+      newPassword: "Новый пароль",
+      confirmPassword: "Подтвердить пароль",
       change: "Изменить",
       dataInfo: "Информация о вашей учетной записи получена из системы регистрации студентов. Если данные неверны, обратитесь в деканат вашего факультета."
     },
@@ -102,6 +105,8 @@ export const translations: Translations = {
       keyIssued: 'Ключ выдан',
       keyReturned: 'Ключ возвращен',
       accessCode: 'Код доступа',
+      showCode: 'Показать код',
+      hideCode: 'Скрыть код',
       status: {
         pending: 'Ожидает подтверждения',
         confirmed: 'Подтверждено',
@@ -290,6 +295,8 @@ export const translations: Translations = {
       keyReturned: 'Key Returned',
       accessCode: 'Access Code',
       viewDetails: 'View Details',
+      showCode: 'Show Code',
+      hideCode: 'Hide Code',
       status: {
         pending: 'Pending',
         confirmed: 'Confirmed',
@@ -416,8 +423,14 @@ export const translations: Translations = {
       security: "Security",
       changePassword: "Change Password",
       changePasswordDesc: "Update your password for account security",
+      oldPassword: "Old password",
+      newPassword: "New Password",
+      confirmPassword: "Confirm Password",
       change: "Change",
-      dataInfo: "Your account information is retrieved from the student registration system. If the data is incorrect, please contact your faculty dean's office."
+      dataInfo: "Your account information is retrieved from the student registration system. If the data is incorrect, please contact your faculty dean's office.",
+        updateSuccess: "Profile updated successfully",
+        updateError: "Error updating profile",
+        updatePasswordSuccess: "Password updated successfully",
     }
   },
 };

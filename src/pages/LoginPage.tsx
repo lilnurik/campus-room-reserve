@@ -71,41 +71,10 @@ const LoginPage = () => {
             <CardDescription>Войдите в систему бронирования помещений</CardDescription>
           </CardHeader>
 
-          <div className="px-6 pb-4 text-center">
-            <div className="bg-muted p-3 rounded-md mb-4">
-              <h3 className="font-semibold mb-2">Тестовые пользователи:</h3>
-              <div className="grid grid-cols-1 gap-2 text-sm text-left">
-                <div className="flex justify-between">
-                  <span><User size={14} className="inline mr-1" /> Студент:</span>
-                  <span className="font-mono">15033 / password</span>
-                </div>
-                <div className="flex justify-between">
-                  <span><KeyRound size={14} className="inline mr-1" /> Охранник:</span>
-                  <span className="font-mono">security / security</span>
-                </div>
-                <div className="flex justify-between">
-                  <span><Shield size={14} className="inline mr-1" /> Админ:</span>
-                  <span className="font-mono">admin / admin</span>
-                </div>
-              </div>
-            </div>
-          </div>
+
 
           <Tabs defaultValue={role} onValueChange={setRole} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="student" className="flex items-center gap-2">
-                <User size={16} />
-                <span className="hidden sm:inline">Студент</span>
-              </TabsTrigger>
-              <TabsTrigger value="guard" className="flex items-center gap-2">
-                <KeyRound size={16} />
-                <span className="hidden sm:inline">Охранник</span>
-              </TabsTrigger>
-              <TabsTrigger value="admin" className="flex items-center gap-2">
-                <Shield size={16} />
-                <span className="hidden sm:inline">Админ</span>
-              </TabsTrigger>
-            </TabsList>
+
 
             <TabsContent value="student">
               <form onSubmit={handleLogin}>
@@ -131,7 +100,7 @@ const LoginPage = () => {
                 </CardContent>
                 <CardFooter className="flex flex-col gap-4">
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Вход..." : "Войти как студент"}
+                    {isLoading ? "Вход..." : "Войти"}
                   </Button>
 
                   <div className="text-sm text-center">

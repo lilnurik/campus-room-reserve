@@ -62,7 +62,7 @@ const BookingCard = ({ booking }) => {
         {(booking.status === 'approved' || booking.status === 'confirmed') && booking.secretCode && (
             <div className="mt-2 bg-muted p-2 rounded flex justify-between items-center">
               <div>
-                <p className="text-xs text-muted-foreground">{t('bookings.accessCode')}:</p>
+                <p className="text-xs text-muted-foreground">{t('booking.accessCode')}:</p>
                 <p className="font-mono font-medium">
                   {showCode ? booking.secretCode : '••••••'}
                 </p>
