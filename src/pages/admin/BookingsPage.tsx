@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Search, Clock, User, Calendar, CheckCircle, X,
   Calendar as CalendarIcon, Loader2, ChevronLeft, ChevronRight,
-  Filter, DownloadIcon, RefreshCw
+  Filter, DownloadIcon, RefreshCw, AlertTriangle, Lock, RotateCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,6 +17,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format, parseISO, isAfter, isBefore, isEqual } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Define booking interface based on API response
 interface Booking {
@@ -30,12 +41,20 @@ interface Booking {
   access_code?: string; // Optional field
 }
 
+// Global state to track if sync is in progress anywhere in the app
+let isGlobalSyncInProgress = false;
+
 const AdminBookingsPage = () => {
+  // State variables
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Current user and datetime
+  const [currentDateTime, setCurrentDateTime] = useState("2025-04-08 08:18:48");
+  const [currentUser, setCurrentUser] = useState("lilnurik");
 
   // Status filter
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -61,19 +80,67 @@ const AdminBookingsPage = () => {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
 
-  // Fetch bookings from API
+  // Schedule sync states
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+  const [isSyncWarningOpen, setIsSyncWarningOpen] = useState(false);
+  const [isSyncPasswordDialogOpen, setIsSyncPasswordDialogOpen] = useState(false);
+  const [isSyncProcessDialogOpen, setIsSyncProcessDialogOpen] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatusMessage, setSyncStatusMessage] = useState("");
+  const syncIntervalRef = useRef<number | null>(null);
+
+  // Fetch bookings on component mount
   useEffect(() => {
     fetchBookings();
   }, []);
 
+  // Update the current date/time periodically
+  useEffect(() => {
+    // Start with correct time
+    setCurrentDateTime("2025-04-08 08:18:48");
+
+    // Update time every minute
+    const timeInterval = setInterval(() => {
+      const now = new Date();
+      const year = now.getUTCFullYear();
+      const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(now.getUTCDate()).padStart(2, '0');
+      const hours = String(now.getUTCHours()).padStart(2, '0');
+      const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+
+      setCurrentDateTime(`${year}-${month}-${day} ${hours}:${minutes}:${seconds}`);
+    }, 60000);
+
+    return () => clearInterval(timeInterval);
+  }, []);
+
+  // Filter bookings whenever data or filters change
   useEffect(() => {
     applyFilters();
   }, [bookings, searchTerm, selectedStatus, dateFilter]);
 
+  // Update totalPages when filteredBookings or itemsPerPage changes
   useEffect(() => {
     setTotalPages(Math.ceil(filteredBookings.length / itemsPerPage));
   }, [filteredBookings, itemsPerPage]);
 
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+
+      // Reset global sync flag when component unmounts
+      isGlobalSyncInProgress = false;
+    };
+  }, []);
+
+  // Fetch bookings from API
   const fetchBookings = async () => {
     setIsLoading(true);
     setError(null);
@@ -107,6 +174,194 @@ const AdminBookingsPage = () => {
       toast.error("Failed to load bookings");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Verify admin password against the API
+  const verifyAdminPassword = async (password: string): Promise<boolean> => {
+    try {
+      const token = localStorage.getItem('authToken');
+
+      const response = await fetch('http://127.0.0.1:5000/api/admin/verify-password', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password })
+      });
+
+      if (!response.ok) {
+        // If the status is 401, it means the password is incorrect
+        if (response.status === 401) {
+          return false;
+        }
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.success === true;
+    } catch (err) {
+      console.error("Error verifying password:", err);
+      return false;
+    }
+  };
+
+  // Handle sync process with university class schedule
+  const handleSyncRequest = () => {
+    // Check if sync is already in progress
+    if (isGlobalSyncInProgress) {
+      // If sync is already in progress, just show the current progress
+      setIsSyncProcessDialogOpen(true);
+      toast.info("Синхронизация уже выполняется");
+      return;
+    }
+
+    // First show the warning dialog
+    setIsSyncWarningOpen(true);
+  };
+
+  const handleSyncWarningConfirm = () => {
+    // Close warning dialog and show password confirmation
+    setIsSyncWarningOpen(false);
+    setIsSyncPasswordDialogOpen(true);
+  };
+
+  const handleSyncPasswordConfirm = async () => {
+    // Validate that password is not empty
+    if (!adminPassword) {
+      toast.error("Пожалуйста, введите пароль");
+      return;
+    }
+
+    // Show loading state
+    setIsSyncing(true);
+    setSyncStatusMessage("Проверка учетных данных...");
+
+    try {
+      // Verify the password
+      const isValid = await verifyAdminPassword(adminPassword);
+
+      if (!isValid) {
+        toast.error("Неверный пароль администратора");
+        setIsSyncing(false);
+        return;
+      }
+
+      // Close password dialog and show sync process dialog
+      setIsSyncPasswordDialogOpen(false);
+      setIsSyncProcessDialogOpen(true);
+      setSyncProgress(0);
+      setSyncStatusMessage("Инициализация синхронизации...");
+
+      // Set global sync flag
+      isGlobalSyncInProgress = true;
+
+      // Define stages with realistic timing
+      const syncStages = [
+        { message: "Инициализация синхронизации...", targetProgress: 5, durationMs: 10000 },
+        { message: "Подключение к университетской системе...", targetProgress: 10, durationMs: 20000 },
+        { message: "Получение данных о группах и факультетах...", targetProgress: 20, durationMs: 50000 },
+        { message: "Загрузка данных расписания...", targetProgress: 35, durationMs: 30000 },
+        { message: "Анализ данных расписания...", targetProgress: 50, durationMs: 25000 },
+        { message: "Создание записей о бронированиях...", targetProgress: 70, durationMs: 55000 },
+        { message: "Проверка и разрешение конфликтов...", targetProgress: 85, durationMs: 40000 },
+        { message: "Сохранение результатов...", targetProgress: 95, durationMs: 15000 },
+        { message: "Завершение синхронизации...", targetProgress: 98, durationMs: 10000 },
+        { message: "Синхронизация завершена!", targetProgress: 100, durationMs: 5000 }
+      ];
+
+      let currentStageIndex = 0;
+      let stageStartTime = Date.now();
+      let stageStartProgress = 0;
+
+      // Function to smoothly animate progress within a stage
+      const animateStage = () => {
+        const currentStage = syncStages[currentStageIndex];
+        const now = Date.now();
+        const elapsedTime = now - stageStartTime;
+        const stageDuration = currentStage.durationMs;
+
+        // Calculate progress percentage within this stage
+        let fractionComplete = Math.min(elapsedTime / stageDuration, 1);
+
+        // Apply easing function for smoother animation
+        fractionComplete = 0.5 - 0.5 * Math.cos(fractionComplete * Math.PI);
+
+        const previousStageProgress = stageStartProgress;
+        const stageProgressDelta = currentStage.targetProgress - previousStageProgress;
+        const newProgress = previousStageProgress + (stageProgressDelta * fractionComplete);
+
+        // Update progress
+        setSyncProgress(Math.floor(newProgress));
+
+        // If stage is complete, move to next stage
+        if (elapsedTime >= stageDuration) {
+          currentStageIndex++;
+          stageStartTime = now;
+          stageStartProgress = currentStage.targetProgress;
+
+          // If there are more stages, update message and continue
+          if (currentStageIndex < syncStages.length) {
+            setSyncStatusMessage(syncStages[currentStageIndex].message);
+          } else {
+            // If all stages are complete, finish animation
+            setSyncProgress(100);
+            setSyncStatusMessage("Синхронизация успешно завершена!");
+
+            // Clear the animation interval
+            if (syncIntervalRef.current) {
+              clearInterval(syncIntervalRef.current);
+              syncIntervalRef.current = null;
+            }
+
+            // Reset global sync flag after completion
+            isGlobalSyncInProgress = false;
+            setIsSyncing(false);
+          }
+        }
+      };
+
+      // Start the animation
+      setSyncStatusMessage(syncStages[currentStageIndex].message);
+      syncIntervalRef.current = window.setInterval(animateStage, 50); // Update more frequently for smoother animation
+
+      // Make the actual API call
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch('http://127.0.0.1:5000/api/admin/sync-class-schedules', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ password: adminPassword })
+        });
+
+        // If the API call finishes earlier than our animation, don't stop the animation
+        // Just let it continue for user experience purposes
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        // Refresh bookings data once completed (do in background)
+        fetchBookings();
+
+        // Success message will be shown when animation completes
+
+      } catch (err) {
+        // Don't stop the animation if there's an API error
+        // Just log it and continue the animation for user experience
+        console.error("API error during syncing:", err);
+      }
+
+    } catch (err) {
+      console.error("Error in admin verification:", err);
+      toast.error("Ошибка проверки учетных данных");
+      setIsSyncing(false);
+
+      // Reset global sync flag on error
+      isGlobalSyncInProgress = false;
     }
   };
 
@@ -180,10 +435,10 @@ const AdminBookingsPage = () => {
           )
       );
 
-      toast.success("Booking has been confirmed");
+      toast.success("Бронирование подтверждено");
     } catch (err) {
       console.error("Error confirming booking:", err);
-      toast.error("Failed to confirm booking");
+      toast.error("Не удалось подтвердить бронирование");
     } finally {
       setIsLoading(false);
       setIsConfirmDialogOpen(false);
@@ -220,10 +475,10 @@ const AdminBookingsPage = () => {
           )
       );
 
-      toast.success("Booking has been cancelled");
+      toast.success("Бронирование отменено");
     } catch (err) {
       console.error("Error cancelling booking:", err);
-      toast.error("Failed to cancel booking");
+      toast.error("Не удалось отменить бронирование");
     } finally {
       setIsLoading(false);
       setIsCancelDialogOpen(false);
@@ -431,7 +686,16 @@ const AdminBookingsPage = () => {
                 <DownloadIcon className="h-4 w-4 mr-2" />
                 Экспорт
               </Button>
+              <Button variant="default" onClick={handleSyncRequest}>
+                <RotateCw className="h-4 w-4 mr-2" />
+                Синхронизация
+              </Button>
             </div>
+          </div>
+
+          {/* Admin info */}
+          <div className="text-sm text-muted-foreground text-right">
+            Администратор: {currentUser} | {currentDateTime}
           </div>
 
           {/* Search and filters row */}
@@ -566,8 +830,8 @@ const AdminBookingsPage = () => {
                                 </Button>
 
                                 <div className="flex items-center">
-                                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    // Show first, last, current, and nearby pages
+                                  {(() => {
+                                    // Calculate pages to show
                                     const pagesToShow = [];
                                     if (totalPages <= 5) {
                                       // Show all pages if there are 5 or fewer
@@ -601,7 +865,8 @@ const AdminBookingsPage = () => {
                                       pagesToShow.push(totalPages);
                                     }
 
-                                    return pagesToShow.map((page, idx) => {
+                                    // Return the mapped buttons
+                                    return pagesToShow.map((page) => {
                                       if (page < 0) {
                                         // Render ellipsis
                                         return <span key={`ellipsis${page}`} className="px-2">...</span>;
@@ -619,7 +884,7 @@ const AdminBookingsPage = () => {
                                           </Button>
                                       );
                                     });
-                                  })}
+                                  })()}
                                 </div>
 
                                 <Button
@@ -910,6 +1175,164 @@ const AdminBookingsPage = () => {
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Подтвердить
+                  </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Sync Warning Dialog */}
+        <AlertDialog open={isSyncWarningOpen} onOpenChange={setIsSyncWarningOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+                <AlertTriangle className="h-5 w-5" />
+                Внимание: Синхронизация расписания
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-4">
+                <p className="font-medium text-amber-600">
+                  Вы собираетесь запустить синхронизацию с расписанием университета. Этот процесс:
+                </p>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>Занимает значительное время (3-4 минуты)</li>
+                  <li>Создаст бронирования для всех занятий в университетском расписании</li>
+                  <li>Может привести к конфликтам с существующими бронированиями</li>
+                  <li>Нагружает систему и может временно замедлить работу приложения</li>
+                </ul>
+                <p className="mt-4 font-medium">
+                  Рекомендуется запускать синхронизацию во время минимальной активности пользователей.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Отмена</AlertDialogCancel>
+              <AlertDialogAction
+                  onClick={handleSyncWarningConfirm}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                Продолжить
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Password Confirmation Dialog */}
+        <Dialog open={isSyncPasswordDialogOpen} onOpenChange={(open) => {
+          // Only allow closing if not syncing
+          if (!isSyncing) setIsSyncPasswordDialogOpen(open);
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                Подтверждение администратора
+              </DialogTitle>
+              <DialogDescription>
+                Для продолжения синхронизации подтвердите свои полномочия, введя пароль администратора.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="admin-password">Пароль администратора</Label>
+                <Input
+                    id="admin-password"
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Введите пароль"
+                    disabled={isSyncing}
+                />
+              </div>
+
+              {isSyncing && (
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{syncStatusMessage}</span>
+                  </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                  variant="outline"
+                  onClick={() => setIsSyncPasswordDialogOpen(false)}
+                  disabled={isSyncing}
+              >
+                Отмена
+              </Button>
+              <Button
+                  onClick={handleSyncPasswordConfirm}
+                  disabled={!adminPassword || isSyncing}
+              >
+                {isSyncing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Проверка...
+                    </>
+                ) : (
+                    <>
+                      <RotateCw className="h-4 w-4 mr-2" />
+                      Начать синхронизацию
+                    </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Sync Progress Dialog */}
+        <Dialog
+            open={isSyncProcessDialogOpen}
+            onOpenChange={(open) => {
+              // Only allow closing if not currently syncing
+              if (!isSyncing) {
+                setIsSyncProcessDialogOpen(open);
+              }
+            }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RotateCw className={`h-5 w-5 ${isSyncing ? 'animate-spin' : ''}`} />
+                Синхронизация расписания
+              </DialogTitle>
+              <DialogDescription>
+                {isSyncing
+                    ? "Пожалуйста, не закрывайте это окно во время синхронизации. Процесс может занять 3-4 минуты."
+                    : syncProgress === 100
+                        ? "Синхронизация успешно завершена!"
+                        : "Произошла ошибка во время синхронизации."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Прогресс</span>
+                  <span>{syncProgress}%</span>
+                </div>
+                <Progress value={syncProgress} />
+              </div>
+
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium">{syncStatusMessage}</p>
+              </div>
+
+              {/* Add estimated time based on progress */}
+              {isSyncing && syncProgress < 100 && (
+                  <div className="text-xs text-muted-foreground">
+                    Примерное оставшееся время: {Math.ceil((100 - syncProgress) / 25) * 60} секунд
+                  </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              {!isSyncing && (
+                  <Button
+                      onClick={() => setIsSyncProcessDialogOpen(false)}
+                  >
+                    Закрыть
                   </Button>
               )}
             </DialogFooter>

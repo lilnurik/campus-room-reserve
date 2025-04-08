@@ -97,7 +97,11 @@ export default {
 				'blur-in': {
 					from: { filter: 'blur(8px)', opacity: '0' },
 					to: { filter: 'blur(0)', opacity: '1' }
-				}
+				},
+				marquee: {
+					'0%': { transform: 'translateX(0)' },
+					'100%': { transform: 'translateX(-50%)' },
+				},
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
@@ -106,7 +110,8 @@ export default {
 				'fade-out': 'fade-out 0.5s ease-out',
 				'slide-in': 'slide-in 0.5s ease-out',
 				'scale-in': 'scale-in 0.3s ease-out',
-				'blur-in': 'blur-in 0.5s ease-out'
+				'blur-in': 'blur-in 0.5s ease-out',
+				'marquee': 'marquee 30s linear infinite',
 			}
 		}
 	},
