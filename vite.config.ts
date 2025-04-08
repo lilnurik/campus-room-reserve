@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       // Add this proxy configuration to resolve CORS issues
       '/api': {
-        target: 'http://127.0.0.1:5000',
+        target: 'http://127.0.0.1:5321',
         changeOrigin: true,
         secure: false,
         // Configure proxy to pass through the Authorization header
