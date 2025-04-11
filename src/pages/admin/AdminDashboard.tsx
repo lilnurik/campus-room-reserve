@@ -547,10 +547,11 @@ const AdminDashboard = () => {
 
     // Available rooms (total rooms minus rooms with active bookings)
     const roomsWithActiveBookings = new Set(activeBookings.map(b => b.room_id));
-    const availableRooms = rooms.filter(r =>
-        !roomsWithActiveBookings.has(r.id) && r.status !== 'maintenance'
-    );
 
+
+ const availableRooms = rooms.filter(r =>
+     !roomsWithActiveBookings.has(typeof r.id === 'string' ? parseInt(r.id, 10) : r.id) && r.status !== 'maintenance'
+ );
     // Active violations
     const activeViolations = violations.filter(v => v.status === 'pending');
 
@@ -660,7 +661,7 @@ const AdminDashboard = () => {
       activeBookings: activeBookings.length,
       activeUsers: activeUsers.size,
       availableRooms: availableRooms.length,
-      violations: activeViolations.length,
+     // violations: activeViolations.length,
       bookingsTrend: `${bookingTrendPercent > 0 ? '+' : ''}${bookingTrendPercent}%`,
       usersTrend: `${userTrendPercent > 0 ? '+' : ''}${userTrendPercent}%`,
       totalRooms: rooms.length,

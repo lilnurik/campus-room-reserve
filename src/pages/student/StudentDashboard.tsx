@@ -361,7 +361,6 @@ const StudentDashboard = () => {
               >
                 <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
               </Button>
-              <LanguageSwitcher />
               <Button asChild className="self-start">
                 <Link to="/student/booking" className="flex items-center gap-2">
                   <Plus size={18} />

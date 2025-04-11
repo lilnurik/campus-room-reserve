@@ -62,7 +62,7 @@ const UsersPage = () => {
         return;
       }
 
-      const response = await fetch('http://127.0.0.1:5000/api/admin/users', {
+      const response = await fetch('/api/admin/users', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

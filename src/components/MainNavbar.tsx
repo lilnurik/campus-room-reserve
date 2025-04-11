@@ -6,9 +6,10 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-mobile";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useAuth } from "@/context/AuthContext";
+import { useTranslation } from "@/context/LanguageContext";
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: React.ReactNode;
 }
@@ -17,15 +18,16 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { t } = useTranslation();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [open, setOpen] = useState(false);
-  const [currentDateTime, setCurrentDateTime] = useState("2025-04-08 08:46:47");
+  const [currentDateTime, setCurrentDateTime] = useState("2025-04-11 11:40:03");
   const [currentUser] = useState("lilnurik");
 
   // Update time periodically
   useEffect(() => {
     // Start with provided time
-    setCurrentDateTime("2025-04-08 08:46:47");
+    setCurrentDateTime("2025-04-11 11:40:03");
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -47,25 +49,25 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
     switch (role) {
       case "student":
         return [
-          { label: "Главная", href: "/student/dashboard", icon: <Home size={18} /> },
-          { label: "Профиль", href: "/student/profile", icon: <User size={18} /> },
-          { label: "Бронирование", href: "/student/booking", icon: <Calendar size={18} /> },
-          { label: "История", href: "/student/history", icon: <History size={18} /> },
+          { labelKey: "common.home", href: "/student/dashboard", icon: <Home size={18} /> },
+          { labelKey: "common.profile", href: "/student/profile", icon: <User size={18} /> },
+          { labelKey: "common.booking", href: "/student/booking", icon: <Calendar size={18} /> },
+          { labelKey: "common.history", href: "/student/history", icon: <History size={18} /> },
         ];
       case "guard":
         return [
-          { label: "Главная", href: "/guard/dashboard", icon: <Home size={18} /> },
-          { label: "Профиль", href: "/guard/profile", icon: <User size={18} /> },
-          { label: "Текущие брони", href: "/guard/bookings", icon: <Calendar size={18} /> },
-          { label: "Управление ключами", href: "/guard/keys", icon: <Clock size={18} /> },
+          { labelKey: "common.home", href: "/guard/dashboard", icon: <Home size={18} /> },
+          { labelKey: "common.profile", href: "/guard/profile", icon: <User size={18} /> },
+          { labelKey: "dashboard.currentBookings", href: "/guard/bookings", icon: <Calendar size={18} /> },
+          { labelKey: "landingPage.features.keyManagement", href: "/guard/keys", icon: <Clock size={18} /> },
         ];
       case "admin":
         return [
-          { label: "Главная", href: "/admin/dashboard", icon: <Home size={18} /> },
-          { label: "Управление бронями", href: "/admin/bookings", icon: <Calendar size={18} /> },
-          { label: "Аудитории", href: "/admin/rooms", icon: <Building size={18} /> },
-          { label: "Пользователи", href: "/admin/users", icon: <Users size={18} /> },
-          { label: "Настройки", href: "/admin/settings", icon: <Settings size={18} /> },
+          { labelKey: "common.home", href: "/admin/dashboard", icon: <Home size={18} /> },
+          { labelKey: "landingPage.features.scheduleManagement", href: "/admin/bookings", icon: <Calendar size={18} /> },
+          { labelKey: "landingPage.stats.rooms", href: "/admin/rooms", icon: <Building size={18} /> },
+          { labelKey: "landingPage.features.userControl", href: "/admin/users", icon: <Users size={18} /> },
+          { labelKey: "dashboard.filters", href: "/admin/settings", icon: <Settings size={18} /> },
         ];
       default:
         return [];
@@ -86,18 +88,18 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
           <div className="animate-marquee inline-block">
             <div className="flex items-center space-x-4">
               <AlertTriangle size={16} />
-              <span>Система работает в тестовом режиме. Возможны технические перебои.</span>
+              <span>{t('landingPage.testMode.warning')}</span>
               <span className="font-medium">•</span>
-              <span>Пользователь: {currentUser}</span>
+              <span>{t('landingPage.footer.user')}: {currentUser}</span>
               <span className="font-medium">•</span>
-              <span>Текущее время (UTC): {currentDateTime}</span>
+              <span>{t('landingPage.footer.currentTime')} (UTC): {currentDateTime}</span>
               <span className="font-medium">•</span>
               <AlertTriangle size={16} />
-              <span>Система работает в тестовом режиме. Возможны технические перебои.</span>
+              <span>{t('landingPage.testMode.warning')}</span>
               <span className="font-medium">•</span>
-              <span>Пользователь: {currentUser}</span>
+              <span>{t('landingPage.footer.user')}: {currentUser}</span>
               <span className="font-medium">•</span>
-              <span>Текущее время (UTC): {currentDateTime}</span>
+              <span>{t('landingPage.footer.currentTime')} (UTC): {currentDateTime}</span>
               <span className="font-medium">•</span>
             </div>
           </div>
@@ -109,7 +111,11 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
           <div className="container flex h-16 items-center justify-between">
             <div className="flex items-center gap-2">
               <Link to="/" className="text-2xl font-bold text-primary">
-                UniBooker
+                <img
+                    src="https://turin.uz/wp-content/uploads/2021/05/TTPU_15_en-2048x475.png"
+                    alt="TTPU Logo"
+                    className="h-15 max-w-[220px] object-contain"
+                />
               </Link>
             </div>
 
@@ -123,13 +129,13 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
                   ${location.pathname === item.href ? "text-primary" : "text-muted-foreground"}`}
                   >
                     {item.icon}
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
               ))}
               <Button variant="outline" size="sm" asChild>
                 <Link to="/" className="flex items-center gap-2">
                   <LogOut size={18} />
-                  Выйти
+                  {t('common.logout')}
                 </Link>
               </Button>
               <LanguageSwitcher />
@@ -151,7 +157,7 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
                       <div className="px-2 mb-6">
                         <h2 className="text-lg font-semibold mb-1">UniBooker</h2>
                         <p className="text-sm text-muted-foreground">
-                          Пользователь: {currentUser}
+                          {t('landingPage.footer.user')}: {currentUser}
                         </p>
                       </div>
                       <nav className="flex-1">
@@ -168,7 +174,7 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
                                 }}
                             >
                               {item.icon}
-                              <span className="ml-2">{item.label}</span>
+                              <span className="ml-2">{t(item.labelKey)}</span>
                             </Button>
                         ))}
                       </nav>
@@ -186,7 +192,7 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
                             }}
                         >
                           <LogOut className="mr-2 h-5 w-5" />
-                          Выйти
+                          {t('common.logout')}
                         </Button>
                       </div>
                     </div>

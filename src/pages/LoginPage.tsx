@@ -8,8 +8,11 @@ import { User, KeyRound, Shield } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { authApi } from "@/services/api";
+import { useTranslation } from "@/context/LanguageContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const LoginPage = () => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("student");
@@ -31,7 +34,6 @@ const LoginPage = () => {
 
       if (response.success) {
         // Store token in localStorage - make sure it's just the token string
-        // IMPORTANT: Make sure you're storing just the token value, not an object
         localStorage.setItem('authToken', response.data.token);
 
         // Optional: Log that token was saved
@@ -41,8 +43,8 @@ const LoginPage = () => {
         localStorage.setItem('userRole', response.data.role);
         localStorage.setItem('userName', response.data.full_name);
 
-        // Show success toast
-        toast.success(`Добро пожаловать, ${response.data.full_name || username}!`);
+        // Show success toast with translated message
+        toast.success(t('auth.welcomeMessage').replace('{name}', response.data.full_name || username));
 
         // Redirect based on role
         if (response.data.role === 'admin') {
@@ -53,11 +55,11 @@ const LoginPage = () => {
           navigate('/student/dashboard');
         }
       } else {
-        toast.error(response.error || "Неверное имя пользователя или пароль");
+        toast.error(response.error || t('auth.invalidCredentials'));
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast.error("Ошибка при входе в систему");
+      toast.error(t('auth.loginError'));
     } finally {
       setIsLoading(false);
     }
@@ -67,14 +69,33 @@ const LoginPage = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-secondary/30 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-primary">UniBooker</CardTitle>
-            <CardDescription>Войдите в систему бронирования помещений</CardDescription>
+            <div className="flex justify-end mb-2">
+              <LanguageSwitcher />
+            </div>
+            <img
+                src="https://turin.uz/wp-content/uploads/2021/05/TTPU_15_en-2048x475.png"
+                alt="TTPU Logo"
+                className="h-15 max-w-[220px] mx-auto object-contain mb-2"
+            />
+            <CardTitle className="text-2xl font-bold text-primary">{t('auth.loginTitle')}</CardTitle>
+            <CardDescription>{t('auth.loginDescription')}</CardDescription>
           </CardHeader>
 
-
-
           <Tabs defaultValue={role} onValueChange={setRole} className="w-full">
-
+            <TabsList className="grid grid-cols-3 mx-auto w-[350px]">
+              <TabsTrigger value="student" className="flex items-center gap-1">
+                <User className="w-4 h-4" />
+                {t('auth.studentRole')}
+              </TabsTrigger>
+              <TabsTrigger value="guard" className="flex items-center gap-1">
+                <KeyRound className="w-4 h-4" />
+                {t('auth.guardRole')}
+              </TabsTrigger>
+              <TabsTrigger value="admin" className="flex items-center gap-1">
+                <Shield className="w-4 h-4" />
+                {t('auth.adminRole')}
+              </TabsTrigger>
+            </TabsList>
 
             <TabsContent value="student">
               <form onSubmit={handleLogin}>
@@ -82,7 +103,7 @@ const LoginPage = () => {
                   <div className="space-y-2">
                     <Input
                         type="text"
-                        placeholder="ID студента"
+                        placeholder={t('auth.studentIdPlaceholder')}
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
@@ -91,7 +112,7 @@ const LoginPage = () => {
                   <div className="space-y-2">
                     <Input
                         type="password"
-                        placeholder="Пароль"
+                        placeholder={t('auth.passwordPlaceholder')}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -100,13 +121,13 @@ const LoginPage = () => {
                 </CardContent>
                 <CardFooter className="flex flex-col gap-4">
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Вход..." : "Войти"}
+                    {isLoading ? t('auth.loggingIn') : t('auth.login')}
                   </Button>
 
                   <div className="text-sm text-center">
-                    Новый студент?{" "}
+                    {t('auth.newStudent')}{" "}
                     <Link to="/register" className="text-primary hover:underline">
-                      Зарегистрироваться
+                      {t('auth.register')}
                     </Link>
                   </div>
                 </CardFooter>
@@ -119,7 +140,7 @@ const LoginPage = () => {
                   <div className="space-y-2">
                     <Input
                         type="text"
-                        placeholder="Имя пользователя"
+                        placeholder={t('auth.usernamePlaceholder')}
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
@@ -128,7 +149,7 @@ const LoginPage = () => {
                   <div className="space-y-2">
                     <Input
                         type="password"
-                        placeholder="Пароль"
+                        placeholder={t('auth.passwordPlaceholder')}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -137,7 +158,7 @@ const LoginPage = () => {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Вход..." : "Войти как охранник"}
+                    {isLoading ? t('auth.loggingIn') : t('auth.loginAsGuard')}
                   </Button>
                 </CardFooter>
               </form>
@@ -149,7 +170,7 @@ const LoginPage = () => {
                   <div className="space-y-2">
                     <Input
                         type="text"
-                        placeholder="Имя пользователя"
+                        placeholder={t('auth.usernamePlaceholder')}
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
@@ -158,7 +179,7 @@ const LoginPage = () => {
                   <div className="space-y-2">
                     <Input
                         type="password"
-                        placeholder="Пароль"
+                        placeholder={t('auth.passwordPlaceholder')}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -167,7 +188,7 @@ const LoginPage = () => {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Вход..." : "Войти как администратор"}
+                    {isLoading ? t('auth.loggingIn') : t('auth.loginAsAdmin')}
                   </Button>
                 </CardFooter>
               </form>

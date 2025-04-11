@@ -154,7 +154,7 @@ const AdminBookingsPage = () => {
         return;
       }
 
-      const response = await fetch('http://127.0.0.1:5000/api/admin/bookings', {
+      const response = await fetch('/api/admin/bookings', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -182,7 +182,7 @@ const AdminBookingsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch('http://127.0.0.1:5000/api/admin/verify-password', {
+      const response = await fetch('/api/admin/verify-password', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -329,7 +329,7 @@ const AdminBookingsPage = () => {
       // Make the actual API call
       try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch('http://127.0.0.1:5000/api/admin/sync-class-schedules', {
+        const response = await fetch('/api/admin/sync-class-schedules', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -414,7 +414,7 @@ const AdminBookingsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`http://127.0.0.1:5000/api/admin/booking/${selectedBooking}/approve`, {
+      const response = await fetch(`/api/admin/booking/${selectedBooking}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -454,7 +454,7 @@ const AdminBookingsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`http://127.0.0.1:5000/api/admin/booking/${selectedBooking}/reject`, {
+      const response = await fetch(`/api/admin/booking/${selectedBooking}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

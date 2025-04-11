@@ -7,12 +7,15 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { z } from "zod";
 import { authApi } from "@/services/api.ts";
-
-// Updated student ID schema - based on backend requirements
-// This can be modified to fit your exact student ID format
-const studentIdSchema = z.string().min(3, "ID студента должен содержать минимум 3 символа");
+import { useTranslation } from "@/context/LanguageContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const RegisterPage = () => {
+  const { t } = useTranslation();
+
+  // Updated student ID schema with translated error message
+  const studentIdSchema = z.string().min(3, () => t('auth.studentIdMinLength'));
+
   const [studentId, setStudentId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -42,7 +45,7 @@ const RegisterPage = () => {
       if (response.success) {
         if (response.data.status === 'verified') {
           setIdValidated(true);
-          toast.success("ID студента подтвержден");
+          toast.success(t('auth.studentIdVerified'));
 
           // Store student info from API response
           if (response.data.student_info) {
@@ -56,16 +59,16 @@ const RegisterPage = () => {
             }
           }
         } else if (response.data.status === 'registered') {
-          toast.info("Этот ID уже зарегистрирован. Пожалуйста, авторизуйтесь.");
+          toast.info(t('auth.idAlreadyRegistered'));
           navigate("/login");
         } else {
-          toast.error("Указанный ID студента не найден в системе");
+          toast.error(t('auth.studentIdNotFound'));
         }
       } else {
-        toast.error(response.error || "Ошибка при проверке ID студента");
+        toast.error(response.error || t('auth.studentIdCheckError'));
       }
     } catch (error) {
-      toast.error("Ошибка при проверке ID студента");
+      toast.error(t('auth.studentIdCheckError'));
       console.error(error);
     } finally {
       setIsValidatingId(false);
@@ -84,19 +87,19 @@ const RegisterPage = () => {
 
     // Validate password
     if (!password) {
-      toast.error("Пожалуйста, введите пароль");
+      toast.error(t('auth.passwordRequired'));
       return;
     }
 
     // Validate password match
     if (password !== confirmPassword) {
-      toast.error("Пароли не совпадают");
+      toast.error(t('auth.passwordsDoNotMatch'));
       return;
     }
 
     // Only proceed if student ID is validated
     if (!idValidated) {
-      toast.error("Пожалуйста, подтвердите ID студента");
+      toast.error(t('auth.pleaseVerifyId'));
       return;
     }
 
@@ -107,13 +110,13 @@ const RegisterPage = () => {
       const result = await authApi.completeRegistration(studentId, password);
 
       if (result.success) {
-        toast.success("Регистрация успешна! Теперь вы можете войти в систему");
+        toast.success(t('auth.registrationSuccess'));
         navigate("/login");
       } else {
-        toast.error(result.error || "Ошибка при регистрации");
+        toast.error(result.error || t('auth.registrationError'));
       }
     } catch (error) {
-      toast.error("Произошла ошибка при регистрации");
+      toast.error(t('auth.registrationError'));
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -124,8 +127,16 @@ const RegisterPage = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-secondary/30 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-primary">Регистрация студента</CardTitle>
-            <CardDescription>Создайте аккаунт для бронирования помещений</CardDescription>
+            <div className="flex justify-end mb-2">
+              <LanguageSwitcher />
+            </div>
+            <img
+                src="https://turin.uz/wp-content/uploads/2021/05/TTPU_15_en-2048x475.png"
+                alt="TTPU Logo"
+                className="h-15 max-w-[220px] mx-auto object-contain mb-2"
+            />
+            <CardTitle className="text-2xl font-bold text-primary">{t('auth.registerTitle')}</CardTitle>
+            <CardDescription>{t('auth.registerDescription')}</CardDescription>
           </CardHeader>
 
           <form onSubmit={handleRegister}>
@@ -134,7 +145,7 @@ const RegisterPage = () => {
                 <div className="flex gap-2">
                   <Input
                       type="text"
-                      placeholder="ID студента"
+                      placeholder={t('auth.studentIdPlaceholder')}
                       value={studentId}
                       onChange={(e) => setStudentId(e.target.value)}
                       disabled={idValidated || isValidatingId}
@@ -147,7 +158,12 @@ const RegisterPage = () => {
                       onClick={handleValidateId}
                       disabled={isValidatingId || idValidated || !studentId}
                   >
-                    {isValidatingId ? "Проверка..." : idValidated ? "Подтвержден" : "Проверить ID"}
+                    {isValidatingId
+                        ? t('auth.checking')
+                        : idValidated
+                            ? t('auth.verified')
+                            : t('auth.checkId')
+                    }
                   </Button>
                 </div>
               </div>
@@ -155,18 +171,18 @@ const RegisterPage = () => {
               {/* Show student info if validated */}
               {idValidated && studentInfo && (
                   <div className="bg-muted p-3 rounded-md">
-                    <h3 className="font-medium mb-1">Информация о студенте:</h3>
-                    <p><span className="font-medium">Имя:</span> {studentInfo.full_name}</p>
+                    <h3 className="font-medium mb-1">{t('auth.studentInfo')}:</h3>
+                    <p><span className="font-medium">{t('auth.name')}:</span> {studentInfo.full_name}</p>
                     {studentInfo.email && <p><span className="font-medium">Email:</span> {studentInfo.email}</p>}
-                    {studentInfo.group && <p><span className="font-medium">Группа:</span> {studentInfo.group}</p>}
-                    {studentInfo.faculty && <p><span className="font-medium">Факультет:</span> {studentInfo.faculty}</p>}
+                    {studentInfo.group && <p><span className="font-medium">{t('auth.group')}:</span> {studentInfo.group}</p>}
+                    {studentInfo.faculty && <p><span className="font-medium">{t('auth.faculty')}:</span> {studentInfo.faculty}</p>}
                   </div>
               )}
 
               <div className="space-y-2">
                 <Input
                     type="password"
-                    placeholder="Пароль"
+                    placeholder={t('auth.passwordPlaceholder')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={!idValidated}
@@ -177,7 +193,7 @@ const RegisterPage = () => {
               <div className="space-y-2">
                 <Input
                     type="password"
-                    placeholder="Подтвердите пароль"
+                    placeholder={t('auth.confirmPasswordPlaceholder')}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     disabled={!idValidated}
@@ -188,13 +204,13 @@ const RegisterPage = () => {
 
             <CardFooter className="flex flex-col gap-4">
               <Button type="submit" className="w-full" disabled={isLoading || !idValidated}>
-                {isLoading ? "Регистрация..." : "Зарегистрироваться"}
+                {isLoading ? t('auth.registering') : t('auth.register')}
               </Button>
 
               <div className="text-sm text-center">
-                Уже есть аккаунт?{" "}
+                {t('auth.alreadyHaveAccount')}{" "}
                 <Link to="/login" className="text-primary hover:underline">
-                  Войти
+                  {t('auth.login')}
                 </Link>
               </div>
             </CardFooter>
