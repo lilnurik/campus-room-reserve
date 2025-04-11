@@ -25,6 +25,8 @@ import UsersPage from "./pages/admin/UsersPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import RoomsPage from "./pages/admin/RoomsPage";
 import ApiTest from "@/components/ApiTest.tsx";
+import SwaggerUI from 'swagger-ui-react';
+import 'swagger-ui-react/swagger-ui.css';
 
 const queryClient = new QueryClient();
 
@@ -64,7 +66,9 @@ const App = () => (
                 <Route path="/admin/rooms" element={<RoomsPage />} />
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="/swagger" element={<SwaggerUI url="/api/swagger.json" />} />
                 <Route path="*" element={<NotFound />} />
+
               </Routes>
             </TooltipProvider>
           </LanguageProvider>

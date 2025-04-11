@@ -26,7 +26,7 @@ import { formatDate, formatTime } from "@/lib/utils";
 import { parseISO, differenceInDays, differenceInMinutes, isAfter, isBefore, isToday, subDays, format } from "date-fns";
 
 // API endpoint base
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = '/api';
 
 // Define interfaces for data types
 interface Room {
