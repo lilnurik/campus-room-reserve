@@ -138,8 +138,141 @@ export const translations: Translations = {
       refreshError: 'Ошибка при обновлении данных',
       refreshData: 'Обновить данные',
     },
+
     rooms: {
+      title: 'Управление помещениями',
+      subtitle: 'Добавляйте, редактируйте и управляйте аудиториями и другими помещениями университета',
+      addRoom: 'Добавить помещение',
+      listTitle: 'Список помещений',
+      totalRooms: 'Всего помещений',
+      noRoomsFound: 'Помещения не найдены',
+      updateSuccess: 'Помещение успешно обновлено',
+      updateError: 'Ошибка при обновлении помещения',
+      deleteSuccess: 'Помещение успешно удалено',
+      deleteError: 'Ошибка при удалении помещения',
+      addSuccess: 'Помещение успешно добавлено',
+      addError: 'Ошибка при добавлении помещения',
+      fillRequiredFields: 'Заполните все обязательные поля',
       capacity: 'Вместимость',
+
+      filters: {
+        title: 'Фильтры',
+        description: 'Отфильтруйте список помещений',
+        search: 'Поиск',
+        searchPlaceholder: 'Поиск по названию или ID',
+        building: 'Корпус',
+        selectBuilding: 'Выберите корпус',
+        allBuildings: 'Все корпуса',
+        roomType: 'Тип помещения',
+        selectType: 'Выберите тип',
+        allTypes: 'Все типы',
+        status: 'Статус',
+        selectStatus: 'Выберите статус',
+        allStatuses: 'Все статусы'
+      },
+
+      views: {
+        table: 'Таблица',
+        grid: 'Плитка'
+      },
+
+      fields: {
+        id: 'ID помещения',
+        name: 'Название',
+        building: 'Корпус',
+        capacity: 'Вместимость',
+        type: 'Тип помещения',
+        status: 'Статус',
+        actions: 'Действия',
+        description: 'Описание',
+        features: 'Функции и оборудование',
+        floor: 'Этаж'
+      },
+
+      status: {
+        available: 'Доступна',
+        unavailable: 'Недоступна',
+        maintenance: 'Обслуживание'
+      },
+
+      types: {
+        lecture: 'Лекционная',
+        computer_lab: 'Компьютерная',
+        lab: 'Лаборатория',
+        conference: 'Конференц-зал',
+        sports: 'Спортивный зал',
+        office: 'Офисное помещение',
+        library: 'Библиотека',
+        coworking: 'Коворкинг'
+      },
+
+      features: {
+        projector: 'Проектор',
+        computer: 'Компьютер',
+        whiteboard: 'Доска',
+        airConditioning: 'Кондиционер',
+        audioSystem: 'Аудиосистема',
+        videoConferencing: 'Видеоконференции',
+        specializedEquipment: 'Спец. оборудование',
+        ventilation: 'Вентиляция',
+        safetyEquipment: 'Безопасность',
+        computers: 'Компьютеры',
+        basketballCourt: 'Баскетбол',
+        volleyballCourt: 'Волейбол',
+        changingRooms: 'Раздевалки',
+        highSpeedInternet: 'Высокоскоростной интернет',
+        coffeeMachine: 'Кофемашина',
+        loungeArea: 'Зона отдыха',
+        meetingTable: 'Стол для совещаний',
+        printer: 'Принтер',
+        quietZone: 'Тихая зона',
+        bookshelves: 'Книжные полки'
+      },
+
+      buildings: {
+        main: 'Главный корпус',
+        technical: 'Технический корпус',
+        administrative: 'Административный корпус',
+        scientific: 'Научный корпус',
+        sports: 'Спортивный комплекс',
+        library: 'Библиотека',
+        studentCenter: 'Студенческий центр'
+      },
+
+      placeholders: {
+        id: 'Например: A101',
+        name: 'Название помещения',
+        capacity: 'Количество мест',
+        description: 'Дополнительная информация о помещении',
+        selectBuilding: 'Выберите корпус',
+        selectType: 'Выберите тип помещения',
+        selectStatus: 'Выберите статус'
+      },
+
+      actions: {
+        add: 'Добавить помещение',
+        adding: 'Добавление...',
+        edit: 'Изменить',
+        delete: 'Удалить',
+        save: 'Сохранить изменения',
+        saving: 'Сохранение...',
+        deleting: 'Удаление...'
+      },
+
+      dialogs: {
+        addRoom: {
+          title: 'Добавить новое помещение',
+          description: 'Заполните информацию о новом помещении. Поля, отмеченные *, обязательны для заполнения.'
+        },
+        editRoom: {
+          title: 'Редактировать помещение',
+          description: 'Измените информацию о выбранном помещении.'
+        },
+        deleteRoom: {
+          title: 'Подтверждение удаления',
+          description: 'Вы уверены, что хотите удалить это помещение? Это действие нельзя отменить.'
+        }
+      }
     },
     booking: {
       room: 'Комната',
@@ -444,9 +577,143 @@ export const translations: Translations = {
       refreshError: "Error refreshing data",
       refreshData: "Refresh data",
     },
+
     rooms: {
+      title: 'Room Management',
+      subtitle: 'Add, edit, and manage classrooms and other university premises',
+      addRoom: 'Add Room',
+      listTitle: 'Room List',
+      totalRooms: 'Total Rooms',
+      noRoomsFound: 'No rooms found',
+      updateSuccess: 'Room successfully updated',
+      updateError: 'Error updating room',
+      deleteSuccess: 'Room successfully deleted',
+      deleteError: 'Error deleting room',
+      addSuccess: 'Room successfully added',
+      addError: 'Error adding room',
+      fillRequiredFields: 'Please fill all required fields',
       capacity: 'Capacity',
+
+      filters: {
+        title: 'Filters',
+        description: 'Filter room list',
+        search: 'Search',
+        searchPlaceholder: 'Search by name or ID',
+        building: 'Building',
+        selectBuilding: 'Select building',
+        allBuildings: 'All buildings',
+        roomType: 'Room type',
+        selectType: 'Select type',
+        allTypes: 'All types',
+        status: 'Status',
+        selectStatus: 'Select status',
+        allStatuses: 'All statuses'
+      },
+
+      views: {
+        table: 'Table',
+        grid: 'Grid'
+      },
+
+      fields: {
+        id: 'Room ID',
+        name: 'Name',
+        building: 'Building',
+        capacity: 'Capacity',
+        type: 'Room type',
+        status: 'Status',
+        actions: 'Actions',
+        description: 'Description',
+        features: 'Features and equipment',
+        floor: 'Floor'
+      },
+
+      status: {
+        available: 'Available',
+        unavailable: 'Unavailable',
+        maintenance: 'Maintenance'
+      },
+
+      types: {
+        lecture: 'Lecture Room',
+        computer_lab: 'Computer Lab',
+        lab: 'Laboratory',
+        conference: 'Conference Hall',
+        sports: 'Sports Hall',
+        office: 'Office Space',
+        library: 'Library',
+        coworking: 'Coworking Space'
+      },
+
+      features: {
+        projector: 'Projector',
+        computer: 'Computer',
+        whiteboard: 'Whiteboard',
+        airConditioning: 'Air Conditioning',
+        audioSystem: 'Audio System',
+        videoConferencing: 'Video Conferencing',
+        specializedEquipment: 'Specialized Equipment',
+        ventilation: 'Ventilation',
+        safetyEquipment: 'Safety Equipment',
+        computers: 'Computers',
+        basketballCourt: 'Basketball',
+        volleyballCourt: 'Volleyball',
+        changingRooms: 'Changing Rooms',
+        highSpeedInternet: 'High-Speed Internet',
+        coffeeMachine: 'Coffee Machine',
+        loungeArea: 'Lounge Area',
+        meetingTable: 'Meeting Table',
+        printer: 'Printer',
+        quietZone: 'Quiet Zone',
+        bookshelves: 'Bookshelves'
+      },
+
+      buildings: {
+        main: 'Main Building',
+        technical: 'Technical Building',
+        administrative: 'Administrative Building',
+        scientific: 'Scientific Building',
+        sports: 'Sports Complex',
+        library: 'Library',
+        studentCenter: 'Student Center'
+      },
+
+      placeholders: {
+        id: 'Example: A101',
+        name: 'Room name',
+        capacity: 'Seating capacity',
+        description: 'Additional information about the room',
+        selectBuilding: 'Select building',
+        selectType: 'Select room type',
+        selectStatus: 'Select status'
+      },
+
+      actions: {
+        add: 'Add Room',
+        adding: 'Adding...',
+        edit: 'Edit',
+        delete: 'Delete',
+        save: 'Save Changes',
+        saving: 'Saving...',
+        deleting: 'Deleting...'
+      },
+
+      dialogs: {
+        addRoom: {
+          title: 'Add New Room',
+          description: 'Fill in the information about the new room. Fields marked with * are required.'
+        },
+        editRoom: {
+          title: 'Edit Room',
+          description: 'Modify the information about the selected room.'
+        },
+        deleteRoom: {
+          title: 'Confirm Deletion',
+          description: 'Are you sure you want to delete this room? This action cannot be undone.'
+        }
+      }
     },
+
     booking: {
       room: 'Room',
       building: 'Building',
@@ -796,8 +1063,141 @@ export const translations: Translations = {
       refreshError: 'Ma\'lumotlarni yangilashda xatolik',
       refreshData: 'Ma\'lumotlarni yangilash',
     },
+
     rooms: {
+      title: 'Xonalarni boshqarish',
+      subtitle: 'Universitet xonalarini qo\'shing, tahrirlang va boshqaring',
+      addRoom: 'Xona qo\'shish',
+      listTitle: 'Xonalar ro\'yxati',
+      totalRooms: 'Jami xonalar',
+      noRoomsFound: 'Xonalar topilmadi',
+      updateSuccess: 'Xona muvaffaqiyatli yangilandi',
+      updateError: 'Xonani yangilashda xatolik yuz berdi',
+      deleteSuccess: 'Xona muvaffaqiyatli o\'chirildi',
+      deleteError: 'Xonani o\'chirishda xatolik yuz berdi',
+      addSuccess: 'Xona muvaffaqiyatli qo\'shildi',
+      addError: 'Xonani qo\'shishda xatolik yuz berdi',
+      fillRequiredFields: 'Barcha majburiy maydonlarni to\'ldiring',
       capacity: 'Sig\'imi',
+
+      filters: {
+        title: 'Filtrlar',
+        description: 'Xonalar ro\'yxatini filtrlash',
+        search: 'Qidirish',
+        searchPlaceholder: 'Nom yoki ID bo\'yicha qidirish',
+        building: 'Bino',
+        selectBuilding: 'Binoni tanlang',
+        allBuildings: 'Barcha binolar',
+        roomType: 'Xona turi',
+        selectType: 'Turni tanlang',
+        allTypes: 'Barcha turlar',
+        status: 'Holati',
+        selectStatus: 'Holatni tanlang',
+        allStatuses: 'Barcha holatlar'
+      },
+
+      views: {
+        table: 'Jadval',
+        grid: 'Plitkalar'
+      },
+
+      fields: {
+        id: 'Xona ID',
+        name: 'Nomi',
+        building: 'Bino',
+        capacity: 'Sig\'imi',
+        type: 'Xona turi',
+        status: 'Holati',
+        actions: 'Amallar',
+        description: 'Tavsif',
+        features: 'Xususiyatlar va jihozlar',
+        floor: 'Qavat'
+      },
+
+      status: {
+        available: 'Mavjud',
+        unavailable: 'Mavjud emas',
+        maintenance: 'Taʼmirlashda'
+      },
+
+      types: {
+        lecture: 'Ma\'ruza xonasi',
+        computer_lab: 'Kompyuter xonasi',
+        lab: 'Laboratoriya',
+        conference: 'Konferentsiya zali',
+        sports: 'Sport zali',
+        office: 'Idora xonasi',
+        library: 'Kutubxona',
+        coworking: 'Kovorking'
+      },
+
+      features: {
+        projector: 'Proyektor',
+        computer: 'Kompyuter',
+        whiteboard: 'Doska',
+        airConditioning: 'Konditsioner',
+        audioSystem: 'Audio tizim',
+        videoConferencing: 'Video konferentsiya',
+        specializedEquipment: 'Maxsus uskunalar',
+        ventilation: 'Ventilyatsiya',
+        safetyEquipment: 'Xavfsizlik jihozlari',
+        computers: 'Kompyuterlar',
+        basketballCourt: 'Basketbol',
+        volleyballCourt: 'Voleybol',
+        changingRooms: 'Kiyinish xonalari',
+        highSpeedInternet: 'Yuqori tezlikdagi internet',
+        coffeeMachine: 'Qahva mashinasi',
+        loungeArea: 'Dam olish hududi',
+        meetingTable: 'Majlislar stoli',
+        printer: 'Printer',
+        quietZone: 'Tinch zona',
+        bookshelves: 'Kitob javonlari'
+      },
+
+      buildings: {
+        main: 'Asosiy bino',
+        technical: 'Texnika binosi',
+        administrative: 'Ma\'muriy bino',
+        scientific: 'Ilmiy bino',
+        sports: 'Sport majmuasi',
+        library: 'Kutubxona',
+        studentCenter: 'Talabalar markazi'
+      },
+
+      placeholders: {
+        id: 'Misol: A101',
+        name: 'Xona nomi',
+        capacity: 'O\'rindiqlar soni',
+        description: 'Xona haqida qo\'shimcha ma\'lumot',
+        selectBuilding: 'Binoni tanlang',
+        selectType: 'Xona turini tanlang',
+        selectStatus: 'Holatini tanlang'
+      },
+
+      actions: {
+        add: 'Xona qo\'shish',
+        adding: 'Qo\'shilmoqda...',
+        edit: 'Tahrirlash',
+        delete: 'O\'chirish',
+        save: 'O\'zgarishlarni saqlash',
+        saving: 'Saqlanmoqda...',
+        deleting: 'O\'chirilmoqda...'
+      },
+
+      dialogs: {
+        addRoom: {
+          title: 'Yangi xona qo\'shish',
+          description: 'Yangi xona haqidagi ma\'lumotlarni to\'ldiring. * bilan belgilangan maydonlar majburiy.'
+        },
+        editRoom: {
+          title: 'Xonani tahrirlash',
+          description: 'Tanlangan xona ma\'lumotlarini o\'zgartiring.'
+        },
+        deleteRoom: {
+          title: 'O\'chirishni tasdiqlash',
+          description: 'Haqiqatan ham bu xonani o\'chirmoqchimisiz? Bu amalni qaytarib bo\'lmaydi.'
+        }
+      }
     },
     booking: {
       room: 'Xona',

@@ -91,7 +91,7 @@ export interface Booking {
 }
 
 // Use relative URLs for API endpoints when working with the proxy
-const API_BASE_URL = "";
+const API_BASE_URL = "http://localhost:5321";
 
 // Enhanced helper function for handling API responses with detailed error logging
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
@@ -144,6 +144,9 @@ async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     };
   }
 }
+
+
+
 
 // Function to test the booking API directly
 export const testBookingAPI = async () => {
@@ -293,11 +296,16 @@ export const roomsApi = {
   getById: (id: string) =>
       fetchWithAuth<Room>(`/api/rooms/${id}`),
 
+  createRoom: async (roomData: {name: string, category: string, capacity: number, status: string}): Promise<ApiResponse<{message: string, id: number}>> => {
+    return fetchWithAuth<{message: string, id: number}>('/api/admin/rooms', 'POST', roomData);
+  },
+
   create: (room: RoomCreateDto) =>
       fetchWithAuth<Room>('/api/rooms', 'POST', room),
 
-  update: (id: string, updates: RoomUpdateDto) =>
-      fetchWithAuth<Room>(`/api/rooms/${id}`, 'PUT', updates),
+  updateRoom: async (roomId: string | number, roomData: any): Promise<ApiResponse<Room>> => {
+    return fetchWithAuth<Room>(`/api/admin/room/${roomId}`, 'PUT', roomData);
+  },
 
   delete: (id: string) =>
       fetchWithAuth<void>(`/api/rooms/${id}`, 'DELETE'),
@@ -309,6 +317,18 @@ export const roomsApi = {
   // Get rooms by category
   getRoomsByCategory: async (category: string): Promise<ApiResponse<Room[]>> => {
     return fetchWithAuth<Room[]>(`/api/rooms?category=${category}`);
+  },
+
+  createRoom: async (roomData: Partial<Room>): Promise<ApiResponse<{message: string, id: number}>> => {
+    // Format the data to match what the backend expects
+    const requestData = {
+      name: roomData.name,
+      category: roomData.category || roomData.type, // Support both field names
+      capacity: roomData.capacity,
+      status: roomData.status || 'available'
+    };
+
+    return fetchWithAuth<{message: string, id: number}>('/api/admin/rooms', 'POST', requestData);
   },
 
   // Get room availability for a specific date
@@ -353,6 +373,33 @@ export const roomsApi = {
     }
   }
   };
+
+
+// Option 1: Improved standalone implementation using your fetchWithAuth utility
+export const updateRoom = async (roomId: number | string, roomData: Partial<Room>): Promise<ApiResponse<Room>> => {
+  // Format the data to match what the backend expects
+  const requestData = {
+    name: roomData.name,
+    category: roomData.category || roomData.type, // Support both field names
+    capacity: roomData.capacity,
+    status: roomData.status
+  };
+
+  return fetchWithAuth<Room>(`/api/admin/room/${roomId}`, 'PUT', requestData);
+};
+
+// Option 2: Add this method to your existing roomsApi object
+roomsApi.updateRoom = async (roomId: string | number, roomData: Partial<Room>): Promise<ApiResponse<Room>> => {
+  // Format the data to match what the backend expects
+  const requestData = {
+    name: roomData.name,
+    category: roomData.category || roomData.type, // Support both field names
+    capacity: roomData.capacity,
+    status: roomData.status
+  };
+
+  return fetchWithAuth<Room>(`/api/admin/room/${roomId}`, 'PUT', requestData);
+};
 
 // Bookings API
 export const bookingsApi = {

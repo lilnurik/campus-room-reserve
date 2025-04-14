@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,19 +9,24 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Search, Building, Pencil, Trash, LayoutGrid } from "lucide-react";
 import { useBooking, RoomType, RoomStatus, Room } from "@/context/BookingContext";
 import { toast } from "sonner";
+import { useTranslation } from "@/context/LanguageContext";
+import { roomsApi } from "@/services/api";
 
 const RoomsPage = () => {
-  const { rooms = [], addRoom, updateRoom, deleteRoom, isLoading } = useBooking();
+  const { t } = useTranslation();
+  const { rooms = [], deleteRoom, isLoading, fetchRooms } = useBooking();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
   const [activeRoom, setActiveRoom] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
+  const [updatingRoom, setUpdatingRoom] = useState(false);
+  const [addingRoom, setAddingRoom] = useState(false);
 
   // Filter for room type
   const [selectedType, setSelectedType] = useState<string>("all");
@@ -30,67 +35,67 @@ const RoomsPage = () => {
   // Filter for status
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
-  // Состояние для новой комнаты
+  // Room state
   const [newRoom, setNewRoom] = useState<Room>({
     id: "",
     name: "",
     building: "",
     capacity: 0,
     type: "lecture",
-    features: [], // Make sure this is always initialized as an empty array
+    features: [],
     status: "available",
     floor: 1,
     description: ""
   });
 
-  // Состояние для редактируемой комнаты
+  // Edited room state
   const [editedRoom, setEditedRoom] = useState<Room | null>(null);
 
-  // Список доступных типов помещений
+  // Room types with translations
   const roomTypes = [
-    { value: "lecture", label: "Лекционная" },
-    { value: "computer_lab", label: "Компьютерная" },
-    { value: "lab", label: "Лаборатория" },
-    { value: "conference", label: "Конференц-зал" },
-    { value: "sports", label: "Спортивный зал" },
-    { value: "office", label: "Офисное помещение" },
-    { value: "library", label: "Библиотека" },
-    { value: "coworking", label: "Коворкинг" }
+    { value: "lecture", label: t('rooms.types.lecture') },
+    { value: "computer_lab", label: t('rooms.types.computerLab') },
+    { value: "lab", label: t('rooms.types.lab') },
+    { value: "conference", label: t('rooms.types.conference') },
+    { value: "sports", label: t('rooms.types.sports') },
+    { value: "office", label: t('rooms.types.office') },
+    { value: "library", label: t('rooms.types.library') },
+    { value: "coworking", label: t('rooms.types.coworking') }
   ];
 
-  // Список доступных особенностей помещений
+  // Features with translations
   const availableFeatures = [
-    { id: "projector", label: "Проектор" },
-    { id: "computer", label: "Компьютер" },
-    { id: "whiteboard", label: "Доска" },
-    { id: "air_conditioning", label: "Кондиционер" },
-    { id: "audio_system", label: "Аудиосистема" },
-    { id: "video_conferencing", label: "Видеоконференции" },
-    { id: "specialized_equipment", label: "Спец. оборудование" },
-    { id: "ventilation", label: "Вентиляция" },
-    { id: "safety_equipment", label: "Безопасность" },
-    { id: "computers", label: "Компьютеры" },
-    { id: "basketball_court", label: "Баскетбол" },
-    { id: "volleyball_court", label: "Волейбол" },
-    { id: "changing_rooms", label: "Раздевалки" },
-    { id: "high_speed_internet", label: "Высокоскоростной интернет" },
-    { id: "coffee_machine", label: "Кофемашина" },
-    { id: "lounge_area", label: "Зона отдыха" },
-    { id: "meeting_table", label: "Стол для совещаний" },
-    { id: "printer", label: "Принтер" },
-    { id: "quiet_zone", label: "Тихая зона" },
-    { id: "bookshelves", label: "Книжные полки" }
+    { id: "projector", label: t('rooms.features.projector') },
+    { id: "computer", label: t('rooms.features.computer') },
+    { id: "whiteboard", label: t('rooms.features.whiteboard') },
+    { id: "air_conditioning", label: t('rooms.features.airConditioning') },
+    { id: "audio_system", label: t('rooms.features.audioSystem') },
+    { id: "video_conferencing", label: t('rooms.features.videoConferencing') },
+    { id: "specialized_equipment", label: t('rooms.features.specializedEquipment') },
+    { id: "ventilation", label: t('rooms.features.ventilation') },
+    { id: "safety_equipment", label: t('rooms.features.safetyEquipment') },
+    { id: "computers", label: t('rooms.features.computers') },
+    { id: "basketball_court", label: t('rooms.features.basketballCourt') },
+    { id: "volleyball_court", label: t('rooms.features.volleyballCourt') },
+    { id: "changing_rooms", label: t('rooms.features.changingRooms') },
+    { id: "high_speed_internet", label: t('rooms.features.highSpeedInternet') },
+    { id: "coffee_machine", label: t('rooms.features.coffeeMachine') },
+    { id: "lounge_area", label: t('rooms.features.loungeArea') },
+    { id: "meeting_table", label: t('rooms.features.meetingTable') },
+    { id: "printer", label: t('rooms.features.printer') },
+    { id: "quiet_zone", label: t('rooms.features.quietZone') },
+    { id: "bookshelves", label: t('rooms.features.bookshelves') }
   ];
 
-  // Получаем уникальные здания из данных
-  const uniqueBuildings = Array.from(new Set((rooms || []).map(room => room.building)));
+  // Get unique buildings
+  const uniqueBuildings = Array.from(new Set((rooms || []).map(room => room.building).filter(Boolean)));
 
-  // Фильтрация комнат по всем параметрам
+  // Filter rooms
   const filteredRooms = (rooms || []).filter(room => {
     const matchesSearch =
         room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.building.toLowerCase().includes(searchTerm.toLowerCase());
+        (typeof room.id === 'string' ? room.id.toLowerCase().includes(searchTerm.toLowerCase()) : String(room.id).includes(searchTerm.toLowerCase())) ||
+        (room.building?.toLowerCase() || "").includes(searchTerm.toLowerCase());
 
     const matchesType = selectedType === "all" || room.type === selectedType;
     const matchesBuilding = selectedBuilding === "all" || room.building === selectedBuilding;
@@ -99,23 +104,18 @@ const RoomsPage = () => {
     return matchesSearch && matchesType && matchesBuilding && matchesStatus;
   });
 
-  // Отображение типа помещения на русском языке
+  // Get room type label
   const getRoomTypeLabel = (type: RoomType): string => {
     const typeItem = roomTypes.find(item => item.value === type);
     return typeItem?.label || type;
   };
 
-  // Отображение статуса помещения на русском языке
+  // Get room status label
   const getRoomStatusLabel = (status: RoomStatus): string => {
-    switch (status) {
-      case "available": return "Доступна";
-      case "unavailable": return "Недоступна";
-      case "maintenance": return "Обслуживание";
-      default: return status;
-    }
+    return t(`rooms.status.${status}`);
   };
 
-  // Функция для получения класса цвета статуса
+  // Get status color class
   const getStatusColorClass = (status: RoomStatus): string => {
     switch (status) {
       case "available": return "bg-green-100 text-green-800";
@@ -125,17 +125,53 @@ const RoomsPage = () => {
     }
   };
 
-  // Обработчик для формы добавления комнаты
+  // Fixed addRoomData function - now properly defined
+  const addRoomData = async (roomData: Room): Promise<boolean> => {
+    setAddingRoom(true);
+    try {
+      // Format the data to match what the backend expects
+      const requestData = {
+        name: roomData.name,
+        category: roomData.type, // Map type to category for the API
+        capacity: roomData.capacity,
+        status: roomData.status || 'available'
+      };
+
+      // Call the API to create the room
+      const response = await roomsApi.createRoom(requestData);
+
+      if (response.success) {
+        // Refresh the rooms list if available
+        if (fetchRooms) {
+          await fetchRooms();
+        }
+        toast.success(t('rooms.addSuccess'));
+        return true;
+      } else {
+        toast.error(response.error || t('rooms.addError'));
+        return false;
+      }
+    } catch (error) {
+      console.error("Error adding room:", error);
+      toast.error(t('rooms.addError'));
+      return false;
+    } finally {
+      setAddingRoom(false);
+    }
+  };
+
+  // Handle adding a new room
+  // Updated handleAddRoom function
   const handleAddRoom = async () => {
-    if (!newRoom.id || !newRoom.name || !newRoom.building) {
-      toast.error("Заполните все обязательные поля");
+    if (!newRoom.name) {
+      toast.error(t('rooms.fillRequiredFields'));
       return;
     }
 
-    const success = await addRoom(newRoom);
+    const success = await addRoomData(newRoom);
     if (success) {
       setIsAddRoomOpen(false);
-      // Сбросить форму
+      // Reset form
       setNewRoom({
         id: "",
         name: "",
@@ -150,7 +186,7 @@ const RoomsPage = () => {
     }
   };
 
-  // Обработчик для выбора функций комнаты
+  // Toggle feature
   const toggleFeature = (feature: string, isEdit: boolean = false) => {
     if (isEdit && editedRoom) {
       // Ensure features exists and is an array
@@ -168,7 +204,7 @@ const RoomsPage = () => {
         });
       }
     } else {
-      // For newRoom (already has checks in place)
+      // For newRoom
       if (newRoom.features.includes(feature)) {
         setNewRoom({
           ...newRoom,
@@ -183,7 +219,7 @@ const RoomsPage = () => {
     }
   };
 
-  // Обработчик для открытия диалога редактирования
+  // Handle edit click
   const handleEditClick = (roomId: string) => {
     const roomToEdit = rooms.find(r => r.id === roomId);
     if (roomToEdit) {
@@ -196,24 +232,58 @@ const RoomsPage = () => {
     }
   };
 
-  // Обработчик для сохранения изменений
+  // Update room function since the context function is not available
+  const updateRoomData = async (roomId: string, roomData: Room): Promise<boolean> => {
+    setUpdatingRoom(true);
+    try {
+      // Format the data to match what the backend expects
+      const requestData = {
+        name: roomData.name,
+        category: roomData.type, // Map 'type' to 'category' as expected by backend
+        capacity: roomData.capacity,
+        status: roomData.status
+      };
+
+      const response = await roomsApi.updateRoom(roomId, requestData);
+
+      if (response.success) {
+        // Update local state
+        if (fetchRooms) {
+          await fetchRooms();
+        }
+        toast.success(t('rooms.updateSuccess'));
+        return true;
+      } else {
+        toast.error(response.error || t('rooms.updateError'));
+        return false;
+      }
+    } catch (error) {
+      console.error("Error updating room:", error);
+      toast.error(t('rooms.updateError'));
+      return false;
+    } finally {
+      setUpdatingRoom(false);
+    }
+  };
+
+  // Handle save changes
   const handleSaveChanges = async () => {
     if (!editedRoom) return;
 
-    const success = await updateRoom(editedRoom.id, editedRoom);
+    const success = await updateRoomData(editedRoom.id, editedRoom);
     if (success) {
       setActiveRoom(null);
       setEditedRoom(null);
     }
   };
 
-  // Обработчик для открытия диалога удаления
+  // Handle delete click
   const handleDeleteClick = (roomId: string) => {
     setRoomToDelete(roomId);
     setIsDeleteDialogOpen(true);
   };
 
-  // Обработчик для подтверждения удаления
+  // Handle confirm delete
   const handleConfirmDelete = async () => {
     if (!roomToDelete) return;
 
@@ -229,15 +299,15 @@ const RoomsPage = () => {
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Управление помещениями</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{t('rooms.title')}</h1>
               <p className="text-muted-foreground">
-                Добавляйте, редактируйте и управляйте аудиториями и другими помещениями университета
+                {t('rooms.subtitle')}
               </p>
             </div>
 
             <Button onClick={() => setIsAddRoomOpen(true)} className="self-start md:self-auto">
               <PlusCircle className="h-4 w-4 mr-2" />
-              Добавить помещение
+              {t('rooms.addRoom')}
             </Button>
           </div>
 
@@ -245,17 +315,17 @@ const RoomsPage = () => {
             <div className="w-full md:w-72">
               <Card>
                 <CardHeader>
-                  <CardTitle>Фильтры</CardTitle>
-                  <CardDescription>Отфильтруйте список помещений</CardDescription>
+                  <CardTitle>{t('rooms.filters.title')}</CardTitle>
+                  <CardDescription>{t('rooms.filters.description')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="search">Поиск</Label>
+                    <Label htmlFor="search">{t('rooms.filters.search')}</Label>
                     <div className="relative">
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                           id="search"
-                          placeholder="Поиск по названию или ID"
+                          placeholder={t('rooms.filters.searchPlaceholder')}
                           className="pl-8"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
@@ -264,16 +334,16 @@ const RoomsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="building-filter">Корпус</Label>
+                    <Label htmlFor="building-filter">{t('rooms.filters.building')}</Label>
                     <Select
                         value={selectedBuilding}
                         onValueChange={setSelectedBuilding}
                     >
                       <SelectTrigger id="building-filter">
-                        <SelectValue placeholder="Выберите корпус" />
+                        <SelectValue placeholder={t('rooms.filters.selectBuilding')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Все корпуса</SelectItem>
+                        <SelectItem value="all">{t('rooms.filters.allBuildings')}</SelectItem>
                         {uniqueBuildings.map((building, index) => (
                             <SelectItem key={index} value={building}>{building}</SelectItem>
                         ))}
@@ -282,16 +352,16 @@ const RoomsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="type-filter">Тип помещения</Label>
+                    <Label htmlFor="type-filter">{t('rooms.filters.roomType')}</Label>
                     <Select
                         value={selectedType}
                         onValueChange={setSelectedType}
                     >
                       <SelectTrigger id="type-filter">
-                        <SelectValue placeholder="Выберите тип" />
+                        <SelectValue placeholder={t('rooms.filters.selectType')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Все типы</SelectItem>
+                        <SelectItem value="all">{t('rooms.filters.allTypes')}</SelectItem>
                         {roomTypes.map((type, index) => (
                             <SelectItem key={index} value={type.value}>{type.label}</SelectItem>
                         ))}
@@ -300,19 +370,19 @@ const RoomsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="status-filter">Статус</Label>
+                    <Label htmlFor="status-filter">{t('rooms.filters.status')}</Label>
                     <Select
                         value={selectedStatus}
                         onValueChange={setSelectedStatus}
                     >
                       <SelectTrigger id="status-filter">
-                        <SelectValue placeholder="Выберите статус" />
+                        <SelectValue placeholder={t('rooms.filters.selectStatus')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Все статусы</SelectItem>
-                        <SelectItem value="available">Доступна</SelectItem>
-                        <SelectItem value="unavailable">Недоступна</SelectItem>
-                        <SelectItem value="maintenance">Обслуживание</SelectItem>
+                        <SelectItem value="all">{t('rooms.filters.allStatuses')}</SelectItem>
+                        <SelectItem value="available">{t('rooms.status.available')}</SelectItem>
+                        <SelectItem value="unavailable">{t('rooms.status.unavailable')}</SelectItem>
+                        <SelectItem value="maintenance">{t('rooms.status.maintenance')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -323,17 +393,17 @@ const RoomsPage = () => {
             <div className="flex-1">
               <Card>
                 <CardHeader>
-                  <CardTitle>Список помещений</CardTitle>
+                  <CardTitle>{t('rooms.listTitle')}</CardTitle>
                   <CardDescription>
-                    Всего помещений: {filteredRooms.length}
+                    {t('rooms.totalRooms')}: {filteredRooms.length}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Tabs defaultValue="table">
                     <div className="flex justify-between items-center mb-4">
                       <TabsList>
-                        <TabsTrigger value="table">Таблица</TabsTrigger>
-                        <TabsTrigger value="grid">Плитка</TabsTrigger>
+                        <TabsTrigger value="table">{t('rooms.views.table')}</TabsTrigger>
+                        <TabsTrigger value="grid">{t('rooms.views.grid')}</TabsTrigger>
                       </TabsList>
                     </div>
 
@@ -343,13 +413,12 @@ const RoomsPage = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead>ID</TableHead>
-                              <TableHead>Название</TableHead>
-                              <TableHead>Корпус</TableHead>
-                              <TableHead>Этаж</TableHead>
-                              <TableHead>Вместимость</TableHead>
-                              <TableHead>Тип</TableHead>
-                              <TableHead>Статус</TableHead>
-                              <TableHead>Действия</TableHead>
+                              <TableHead>{t('rooms.fields.name')}</TableHead>
+                              <TableHead>{t('rooms.fields.building')}</TableHead>
+                              <TableHead>{t('rooms.fields.capacity')}</TableHead>
+                              <TableHead>{t('rooms.fields.type')}</TableHead>
+                              <TableHead>{t('rooms.fields.status')}</TableHead>
+                              <TableHead>{t('rooms.fields.actions')}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -359,7 +428,6 @@ const RoomsPage = () => {
                                       <TableCell className="font-medium">{room.id}</TableCell>
                                       <TableCell>{room.name}</TableCell>
                                       <TableCell>{room.building}</TableCell>
-                                      <TableCell>{room.floor || "-"}</TableCell>
                                       <TableCell>{room.capacity}</TableCell>
                                       <TableCell>{getRoomTypeLabel(room.type)}</TableCell>
                                       <TableCell>
@@ -384,7 +452,7 @@ const RoomsPage = () => {
                             ) : (
                                 <TableRow>
                                   <TableCell colSpan={8} className="text-center">
-                                    Помещения не найдены
+                                    {t('rooms.noRoomsFound')}
                                   </TableCell>
                                 </TableRow>
                             )}
@@ -405,7 +473,7 @@ const RoomsPage = () => {
                                     <div className="flex justify-between items-start">
                                       <div>
                                         <h3 className="font-medium text-lg">{room.name}</h3>
-                                        <p className="text-sm text-muted-foreground">{room.building}, Этаж: {room.floor || "-"}</p>
+                                        <p className="text-sm text-muted-foreground">{room.building}</p>
                                       </div>
                                       <Badge
                                           className={getStatusColorClass(room.status)}
@@ -415,8 +483,8 @@ const RoomsPage = () => {
                                     </div>
                                     <div className="mt-2 space-y-1">
                                       <p className="text-sm">ID: <span className="font-medium">{room.id}</span></p>
-                                      <p className="text-sm">Вместимость: <span className="font-medium">{room.capacity}</span></p>
-                                      <p className="text-sm">Тип: <span className="font-medium">{getRoomTypeLabel(room.type)}</span></p>
+                                      <p className="text-sm">{t('rooms.fields.capacity')}: <span className="font-medium">{room.capacity}</span></p>
+                                      <p className="text-sm">{t('rooms.fields.type')}: <span className="font-medium">{getRoomTypeLabel(room.type)}</span></p>
                                       {room.description && (
                                           <p className="text-sm mt-2">{room.description}</p>
                                       )}
@@ -434,11 +502,11 @@ const RoomsPage = () => {
                                     <div className="mt-4 flex justify-end space-x-2">
                                       <Button variant="outline" size="sm" onClick={() => handleEditClick(room.id)}>
                                         <Pencil className="h-3 w-3 mr-1" />
-                                        Изменить
+                                        {t('rooms.actions.edit')}
                                       </Button>
                                       <Button variant="outline" size="sm" className="text-red-500" onClick={() => handleDeleteClick(room.id)}>
                                         <Trash className="h-3 w-3 mr-1" />
-                                        Удалить
+                                        {t('rooms.actions.delete')}
                                       </Button>
                                     </div>
                                   </CardContent>
@@ -446,7 +514,7 @@ const RoomsPage = () => {
                             ))
                         ) : (
                             <div className="col-span-full text-center py-8 text-muted-foreground">
-                              Помещения не найдены
+                              {t('rooms.noRoomsFound')}
                             </div>
                         )}
                       </div>
@@ -458,95 +526,49 @@ const RoomsPage = () => {
           </div>
         </div>
 
-        {/* Диалог добавления нового помещения */}
+        {/* Add Room Dialog */}
         <Dialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
-              <DialogTitle>Добавить новое помещение</DialogTitle>
+              <DialogTitle>{t('rooms.dialogs.addRoom.title')}</DialogTitle>
               <DialogDescription>
-                Заполните информацию о новом помещении. Поля, отмеченные *, обязательны для заполнения.
+                {t('rooms.dialogs.addRoom.description')}
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="room-id">ID помещения *</Label>
-                  <Input
-                      id="room-id"
-                      placeholder="Например: A101"
-                      value={newRoom.id}
-                      onChange={(e) => setNewRoom({...newRoom, id: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="room-name">Название *</Label>
+                  <Label htmlFor="room-name">{t('rooms.fields.name')} *</Label>
                   <Input
                       id="room-name"
-                      placeholder="Название помещения"
+                      placeholder={t('rooms.placeholders.name')}
                       value={newRoom.name}
                       onChange={(e) => setNewRoom({...newRoom, name: e.target.value})}
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="room-building">Корпус *</Label>
-                  <Select
-                      value={newRoom.building}
-                      onValueChange={(value) => setNewRoom({...newRoom, building: value})}
-                  >
-                    <SelectTrigger id="room-building">
-                      <SelectValue placeholder="Выберите корпус" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {uniqueBuildings.map((building, index) => (
-                          <SelectItem key={index} value={building}>{building}</SelectItem>
-                      ))}
-                      <SelectItem value="Главный корпус">Главный корпус</SelectItem>
-                      <SelectItem value="Технический корпус">Технический корпус</SelectItem>
-                      <SelectItem value="Административный корпус">Административный корпус</SelectItem>
-                      <SelectItem value="Научный корпус">Научный корпус</SelectItem>
-                      <SelectItem value="Спортивный комплекс">Спортивный комплекс</SelectItem>
-                      <SelectItem value="Библиотека">Библиотека</SelectItem>
-                      <SelectItem value="Студенческий центр">Студенческий центр</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="room-floor">Этаж</Label>
-                  <Input
-                      id="room-floor"
-                      type="number"
-                      min="0"
-                      placeholder="Номер этажа"
-                      value={newRoom.floor || ''}
-                      onChange={(e) => setNewRoom({...newRoom, floor: Number(e.target.value)})}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="room-capacity">Вместимость *</Label>
+                  <Label htmlFor="room-capacity">{t('rooms.fields.capacity')} *</Label>
                   <Input
                       id="room-capacity"
                       type="number"
                       min="1"
-                      placeholder="Количество мест"
+                      placeholder={t('rooms.placeholders.capacity')}
                       value={newRoom.capacity || ''}
                       onChange={(e) => setNewRoom({...newRoom, capacity: Number(e.target.value)})}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="room-type">Тип помещения *</Label>
+                  <Label htmlFor="room-type">{t('rooms.fields.type')} *</Label>
                   <Select
                       value={newRoom.type}
                       onValueChange={(value: any) => setNewRoom({...newRoom, type: value})}
                   >
                     <SelectTrigger id="room-type">
-                      <SelectValue placeholder="Выберите тип помещения" />
+                      <SelectValue placeholder={t('rooms.placeholders.selectType')} />
                     </SelectTrigger>
                     <SelectContent>
                       {roomTypes.map((type, index) => (
@@ -555,71 +577,43 @@ const RoomsPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="room-description">Описание</Label>
-                <Textarea
-                    id="room-description"
-                    placeholder="Дополнительная информация о помещении"
-                    value={newRoom.description || ''}
-                    onChange={(e) => setNewRoom({...newRoom, description: e.target.value})}
-                />
-              </div>
-
-              {/* Функции и оборудование для новой комнаты */}
-              <div className="space-y-2">
-                <Label>Функции и оборудование</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {availableFeatures.map((feature) => (
-                      <div key={feature.id} className="flex items-center space-x-2">
-                        <Switch
-                            id={`feature-${feature.id}`}
-                            checked={newRoom.features.includes(feature.id)}
-                            onCheckedChange={() => toggleFeature(feature.id, false)}
-                        />
-                        <Label htmlFor={`feature-${feature.id}`}>{feature.label}</Label>
-                      </div>
-                  ))}
+                <div className="space-y-2">
+                  <Label htmlFor="room-status">{t('rooms.fields.status')} *</Label>
+                  <Select
+                      value={newRoom.status}
+                      onValueChange={(value: any) => setNewRoom({...newRoom, status: value})}
+                  >
+                    <SelectTrigger id="room-status">
+                      <SelectValue placeholder={t('rooms.placeholders.selectStatus')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="available">{t('rooms.status.available')}</SelectItem>
+                      <SelectItem value="unavailable">{t('rooms.status.unavailable')}</SelectItem>
+                      <SelectItem value="maintenance">{t('rooms.status.maintenance')}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="room-status">Статус *</Label>
-                <Select
-                    value={newRoom.status}
-                    onValueChange={(value: any) => setNewRoom({...newRoom, status: value})}
-                >
-                  <SelectTrigger id="room-status">
-                    <SelectValue placeholder="Выберите статус" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Доступна</SelectItem>
-                    <SelectItem value="unavailable">Недоступна</SelectItem>
-                    <SelectItem value="maintenance">Обслуживание</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddRoomOpen(false)} disabled={isLoading}>
-                Отмена
+              <Button variant="outline" onClick={() => setIsAddRoomOpen(false)} disabled={addingRoom}>
+                {t('common.cancel')}
               </Button>
-              <Button onClick={handleAddRoom} disabled={isLoading}>
-                {isLoading ? "Добавление..." : "Добавить помещение"}
+              <Button onClick={handleAddRoom} disabled={addingRoom}>
+                {addingRoom ? t('rooms.actions.adding') : t('rooms.actions.add')}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Диалог для редактирования помещения */}
+        {/* Edit Room Dialog */}
         <Dialog open={!!activeRoom} onOpenChange={(open) => !open && setActiveRoom(null)}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
-              <DialogTitle>Редактировать помещение</DialogTitle>
+              <DialogTitle>{t('rooms.dialogs.editRoom.title')}</DialogTitle>
               <DialogDescription>
-                Измените информацию о выбранном помещении.
+                {t('rooms.dialogs.editRoom.description')}
               </DialogDescription>
             </DialogHeader>
 
@@ -627,7 +621,7 @@ const RoomsPage = () => {
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="edit-room-id">ID помещения</Label>
+                      <Label htmlFor="edit-room-id">{t('rooms.fields.id')}</Label>
                       <Input
                           id="edit-room-id"
                           value={editedRoom.id}
@@ -635,7 +629,7 @@ const RoomsPage = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="edit-room-name">Название</Label>
+                      <Label htmlFor="edit-room-name">{t('rooms.fields.name')}</Label>
                       <Input
                           id="edit-room-name"
                           value={editedRoom.name}
@@ -646,43 +640,33 @@ const RoomsPage = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="edit-room-building">Корпус</Label>
+                      <Label htmlFor="edit-room-building">{t('rooms.fields.building')}</Label>
                       <Select
                           value={editedRoom.building}
                           onValueChange={(value) => setEditedRoom({...editedRoom, building: value})}
                       >
                         <SelectTrigger id="edit-room-building">
-                          <SelectValue placeholder="Выберите корпус" />
+                          <SelectValue placeholder={t('rooms.placeholders.selectBuilding')} />
                         </SelectTrigger>
                         <SelectContent>
                           {uniqueBuildings.map((building, index) => (
                               <SelectItem key={index} value={building}>{building}</SelectItem>
                           ))}
-                          <SelectItem value="Главный корпус">Главный корпус</SelectItem>
-                          <SelectItem value="Технический корпус">Технический корпус</SelectItem>
-                          <SelectItem value="Административный корпус">Административный корпус</SelectItem>
-                          <SelectItem value="Научный корпус">Научный корпус</SelectItem>
-                          <SelectItem value="Спортивный комплекс">Спортивный комплекс</SelectItem>
-                          <SelectItem value="Библиотека">Библиотека</SelectItem>
-                          <SelectItem value="Студенческий центр">Студенческий центр</SelectItem>
+                          <SelectItem value="Главный корпус">{t('rooms.buildings.main')}</SelectItem>
+                          <SelectItem value="Технический корпус">{t('rooms.buildings.technical')}</SelectItem>
+                          <SelectItem value="Административный корпус">{t('rooms.buildings.administrative')}</SelectItem>
+                          <SelectItem value="Научный корпус">{t('rooms.buildings.scientific')}</SelectItem>
+                          <SelectItem value="Спортивный комплекс">{t('rooms.buildings.sports')}</SelectItem>
+                          <SelectItem value="Библиотека">{t('rooms.buildings.library')}</SelectItem>
+                          <SelectItem value="Студенческий центр">{t('rooms.buildings.studentCenter')}</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-room-floor">Этаж</Label>
-                      <Input
-                          id="edit-room-floor"
-                          type="number"
-                          min="0"
-                          value={editedRoom.floor || ''}
-                          onChange={(e) => setEditedRoom({...editedRoom, floor: Number(e.target.value)})}
-                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="edit-room-capacity">Вместимость</Label>
+                      <Label htmlFor="edit-room-capacity">{t('rooms.fields.capacity')}</Label>
                       <Input
                           id="edit-room-capacity"
                           type="number"
@@ -692,13 +676,13 @@ const RoomsPage = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="edit-room-type">Тип помещения</Label>
+                      <Label htmlFor="edit-room-type">{t('rooms.fields.type')}</Label>
                       <Select
                           value={editedRoom.type}
                           onValueChange={(value: any) => setEditedRoom({...editedRoom, type: value})}
                       >
                         <SelectTrigger id="edit-room-type">
-                          <SelectValue placeholder="Выберите тип помещения" />
+                          <SelectValue placeholder={t('rooms.placeholders.selectType')} />
                         </SelectTrigger>
                         <SelectContent>
                           {roomTypes.map((type, index) => (
@@ -710,44 +694,28 @@ const RoomsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="edit-room-description">Описание</Label>
+                    <Label htmlFor="edit-room-description">{t('rooms.fields.description')}</Label>
                     <Textarea
                         id="edit-room-description"
-                        placeholder="Дополнительная информация о помещении"
+                        placeholder={t('rooms.placeholders.description')}
                         value={editedRoom.description || ''}
                         onChange={(e) => setEditedRoom({...editedRoom, description: e.target.value})}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Функции и оборудование</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableFeatures.map((feature) => (
-                          <div key={feature.id} className="flex items-center space-x-2">
-                            <Switch
-                                id={`edit-feature-${feature.id}`}
-                                checked={(editedRoom.features || []).includes(feature.id)}
-                                onCheckedChange={() => toggleFeature(feature.id, true)}
-                            />
-                            <Label htmlFor={`edit-feature-${feature.id}`}>{feature.label}</Label>
-                          </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-room-status">Статус</Label>
+                    <Label htmlFor="edit-room-status">{t('rooms.fields.status')}</Label>
                     <Select
                         value={editedRoom.status}
                         onValueChange={(value: any) => setEditedRoom({...editedRoom, status: value})}
                     >
                       <SelectTrigger id="edit-room-status">
-                        <SelectValue placeholder="Выберите статус" />
+                        <SelectValue placeholder={t('rooms.placeholders.selectStatus')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="available">Доступна</SelectItem>
-                        <SelectItem value="unavailable">Недоступна</SelectItem>
-                        <SelectItem value="maintenance">Обслуживание</SelectItem>
+                        <SelectItem value="available">{t('rooms.status.available')}</SelectItem>
+                        <SelectItem value="unavailable">{t('rooms.status.unavailable')}</SelectItem>
+                        <SelectItem value="maintenance">{t('rooms.status.maintenance')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -755,31 +723,31 @@ const RoomsPage = () => {
             )}
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setActiveRoom(null)} disabled={isLoading}>
-                Отмена
+              <Button variant="outline" onClick={() => setActiveRoom(null)} disabled={updatingRoom}>
+                {t('common.cancel')}
               </Button>
-              <Button onClick={handleSaveChanges} disabled={isLoading}>
-                {isLoading ? "Сохранение..." : "Сохранить изменения"}
+              <Button onClick={handleSaveChanges} disabled={updatingRoom}>
+                {updatingRoom ? t('rooms.actions.saving') : t('rooms.actions.save')}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Диалог подтверждения удаления */}
+        {/* Delete Confirmation Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Подтверждение удаления</DialogTitle>
+              <DialogTitle>{t('rooms.dialogs.deleteRoom.title')}</DialogTitle>
               <DialogDescription>
-                Вы уверены, что хотите удалить это помещение? Это действие нельзя отменить.
+                {t('rooms.dialogs.deleteRoom.description')}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isLoading}>
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button variant="destructive" onClick={handleConfirmDelete} disabled={isLoading}>
-                {isLoading ? "Удаление..." : "Удалить"}
+                {isLoading ? t('rooms.actions.deleting') : t('rooms.actions.delete')}
               </Button>
             </DialogFooter>
           </DialogContent>
