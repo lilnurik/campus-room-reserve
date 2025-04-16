@@ -91,7 +91,7 @@ export interface Booking {
 }
 
 // Use relative URLs for API endpoints when working with the proxy
-const API_BASE_URL = "http://localhost:5321";
+const API_BASE_URL = "https://room.turin.uz/";
 
 // Enhanced helper function for handling API responses with detailed error logging
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
