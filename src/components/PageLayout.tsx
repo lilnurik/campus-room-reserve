@@ -4,7 +4,7 @@ import MainNavbar from "./MainNavbar";
 
 interface PageLayoutProps {
   children: ReactNode;
-  role?: "student" | "guard" | "admin";
+  role?: "student" | "guard" | "admin" | "staff" | "employee";
 }
 
 const PageLayout = ({ children, role = "student" }: PageLayoutProps) => {

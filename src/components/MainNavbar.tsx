@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, User, Calendar, Clock, History, Settings, Home, Users, Building, AlertTriangle } from "lucide-react";
+import { LogOut, Menu, User, Calendar, Clock, History, Settings, Home, Users, Building, AlertTriangle, Briefcase, Plus, UserPlus } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-mobile";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -14,7 +15,7 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin" }) => {
+const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin" | "employee" }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -68,6 +69,14 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
           { labelKey: "landingPage.stats.rooms", href: "/admin/rooms", icon: <Building size={18} /> },
           { labelKey: "landingPage.features.userControl", href: "/admin/users", icon: <Users size={18} /> },
           { labelKey: "dashboard.filters", href: "/admin/settings", icon: <Settings size={18} /> },
+        ];
+      case "employee":
+        return [
+          { labelKey: "common.home", href: "/employee/dashboard", icon: <Home size={18} /> },
+          { labelKey: "common.profile", href: "/employee/profile", icon: <User size={18} /> },
+          { labelKey: "common.booking", href: "/employee/booking", icon: <Calendar size={18} /> },
+          { labelKey: "common.history", href: "/employee/history", icon: <History size={18} /> },
+          { labelKey: "employee.manageEmployees", href: "/employee/manage", icon: <UserPlus size={18} /> },
         ];
       default:
         return [];
@@ -132,11 +141,9 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
                     {t(item.labelKey)}
                   </Link>
               ))}
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/" className="flex items-center gap-2">
-                  <LogOut size={18} />
-                  {t('common.logout')}
-                </Link>
+              <Button variant="outline" size="sm" onClick={() => logout()}>
+                <LogOut size={18} className="mr-2" />
+                {t('common.logout')}
               </Button>
               <LanguageSwitcher />
             </nav>
@@ -168,10 +175,7 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
                                 className={`w-full justify-start mb-1 ${
                                     location.pathname === item.href ? "bg-primary/10 text-primary" : ""
                                 }`}
-                                onClick={() => {
-                                  navigate(item.href);
-                                  setOpen(false);
-                                }}
+                                onClick={() => navigate(item.href)}
                             >
                               {item.icon}
                               <span className="ml-2">{t(item.labelKey)}</span>
@@ -185,11 +189,7 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
                         <Button
                             variant="ghost"
                             className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50"
-                            onClick={() => {
-                              logout();
-                              navigate('/');
-                              setOpen(false);
-                            }}
+                            onClick={() => logout()}
                         >
                           <LogOut className="mr-2 h-5 w-5" />
                           {t('common.logout')}

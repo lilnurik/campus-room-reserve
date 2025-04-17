@@ -1,3 +1,4 @@
+// Import the necessary types (add these to your types/api.ts)
 import {
   ApiResponse,
   RoomCreateDto,
@@ -11,7 +12,9 @@ import {
   RegisterStudentDto,
   ValidateStudentIdDto,
   ValidateStudentIdResponseDto,
-  ValidateAccessCodeDto
+  ValidateAccessCodeDto,
+  StaffDto,
+  BulkBookingDto
 } from "@/types/api";
 
 // Interfaces
@@ -26,14 +29,21 @@ export interface UserProfileData {
   username: string;
   fullName: string;
   email: string;
-  faculty: string;
-  group: string;
-  course: number | string;
-  academicYear: string;
+  faculty?: string;
+  group?: string;
+  course?: number | string;
+  academicYear?: string;
   status: string;
   role: string;
   createdAt: string;
   lastLogin: string;
+  // Additional staff-specific fields
+  internal_id?: string;
+  department?: string;
+  is_supervisor?: boolean;
+  is_first_login?: boolean;
+  supervisor_id?: number;
+  supervisor_name?: string;
 }
 
 export interface TimeSlot {
@@ -75,6 +85,15 @@ export interface BookingRequest {
   attendees: number;      // Number of attendees
 }
 
+export interface BulkBookingRequest {
+  roomId: string;         // Room ID
+  date: string;           // YYYY-MM-DD
+  startTime: string;      // HH:MM
+  endTime: string;        // HH:MM
+  purpose: string;        // Purpose of booking
+  staffIds: number[];     // Array of staff IDs to include in booking
+}
+
 export interface Booking {
   id: number;
   room_id: number;
@@ -90,8 +109,21 @@ export interface Booking {
   created_at: string;
 }
 
+export interface StaffMember {
+  id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  internal_id: string;
+  department: string;
+  is_supervisor: boolean;
+  supervisor_id?: number;
+  supervisor_name?: string;
+  status: string;
+}
+
 // Use relative URLs for API endpoints when working with the proxy
-const API_BASE_URL = "https://room.turin.uz/";
+const API_BASE_URL = "http://127.0.0.1:5321";
 
 // Enhanced helper function for handling API responses with detailed error logging
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
@@ -145,9 +177,6 @@ async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
   }
 }
 
-
-
-
 // Function to test the booking API directly
 export const testBookingAPI = async () => {
   const token = localStorage.getItem('authToken');
@@ -196,8 +225,21 @@ async function fetchWithAuth<T>(
     // Get the token from localStorage
     const token = localStorage.getItem('authToken');
 
-    if (!token && !endpoint.includes('/api/auth/login') && !endpoint.includes('/api/auth/check-student-id')) {
-      console.warn('No auth token available - API call may fail:', endpoint);
+    // Public endpoints that don't require authentication
+    const publicEndpoints = [
+      '/api/auth/login',
+      '/api/auth/check-student-id',
+      '/api/auth/check-staff-id'
+    ];
+
+    const isPublicEndpoint = publicEndpoints.some(pe => endpoint.includes(pe));
+
+    if (!token && !isPublicEndpoint) {
+      console.warn('No auth token available for protected endpoint:', endpoint);
+      return {
+        success: false,
+        error: 'Authentication required. Please log in.'
+      };
     }
 
     // Remove duplicate forward slashes in URL
@@ -214,6 +256,7 @@ async function fetchWithAuth<T>(
     // Add Authorization header if token exists
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+      console.log('Adding auth token to request');
     }
 
     // Log the request payload for debugging
@@ -285,13 +328,108 @@ export const authApi = {
       old_password: oldPassword,
       new_password: newPassword
     });
+  },
+
+  // Staff-related functions
+  checkStaffId: async (internalId: string): Promise<ApiResponse<any>> => {
+    return fetchWithAuth<any>('/api/auth/check-staff-id', 'POST', {
+      internal_id: internalId
+    });
+  },
+
+  completeStaffRegistration: async (internalId: string, password: string): Promise<ApiResponse<any>> => {
+    return fetchWithAuth<any>('/api/auth/staff/complete-registration', 'POST', {
+      internal_id: internalId,
+      password
+    });
+  },
+
+  changeFirstTimePassword: async (newPassword: string): Promise<ApiResponse<any>> => {
+    return fetchWithAuth<any>('/api/auth/first-time-password-change', 'POST', {
+      new_password: newPassword
+    });
+  },
+
+  getProfile: async (): Promise<ApiResponse<UserProfileData>> => {
+    return fetchWithAuth<UserProfileData>('/api/auth/me/profile', 'GET');
+  }
+};
+
+// Staff API
+export const staffApi = {
+  // Get all subordinates for a supervisor
+  getSubordinates: async (): Promise<ApiResponse<StaffMember[]>> => {
+    return fetchWithAuth<StaffMember[]>('/api/staff/subordinates', 'GET');
+  },
+
+  // Create a new staff member (supervisor only)
+  createStaff: async (staffData: {
+    full_name: string,
+    email: string,
+    department: string,
+    internal_id: string,
+    is_supervisor: boolean
+  }): Promise<ApiResponse<any>> => {
+    return fetchWithAuth<any>('/api/staff/create', 'POST', staffData);
+  },
+
+  // Update an existing staff member (supervisor only)
+  updateStaff: async (staffId: number, staffData: Partial<StaffMember>): Promise<ApiResponse<any>> => {
+    return fetchWithAuth<any>(`/api/staff/${staffId}`, 'PUT', staffData);
+  },
+
+  // Delete a staff member (supervisor only)
+  deleteStaff: async (staffId: number): Promise<ApiResponse<any>> => {
+    return fetchWithAuth<any>(`/api/staff/${staffId}`, 'DELETE');
+  },
+
+  // Get a specific staff member's details
+  getStaffById: async (staffId: number): Promise<ApiResponse<StaffMember>> => {
+    return fetchWithAuth<StaffMember>(`/api/staff/${staffId}`, 'GET');
+  },
+
+  // Create bulk booking for multiple staff members
+  createBulkBooking: async (bookingData: {
+    roomId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    purpose: string,
+    staffIds: number[]
+  }): Promise<ApiResponse<any>> => {
+    try {
+      // Format the dates correctly for the backend
+      const startISO = new Date(`${bookingData.date}T${bookingData.startTime}:00`).toISOString();
+      const endISO = new Date(`${bookingData.date}T${bookingData.endTime}:00`).toISOString();
+
+      console.log("BULK BOOKING API - Sending request to /api/bookings/bulk");
+
+      // Explicitly format the request as expected by backend
+      const apiBookingData = {
+        room_id: parseInt(bookingData.roomId),
+        start_time: startISO,
+        end_time: endISO,
+        purpose: bookingData.purpose,
+        staff_ids: bookingData.staffIds
+      };
+
+      console.log("Bulk booking data:", apiBookingData);
+
+      // ENSURE we're using the correct endpoint for bulk booking
+      return fetchWithAuth<any>('/api/bookings/bulk', 'POST', apiBookingData);
+    } catch (error) {
+      console.error("Error preparing bulk booking data:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to prepare bulk booking data"
+      };
+    }
   }
 };
 
 // Rooms API
 export const roomsApi = {
-  getAll: () =>
-      fetchWithAuth<Room[]>('/api/rooms/'),
+  getAll: () => fetchWithAuth<Room[]>('/api/rooms/'),
 
   getById: (id: string) =>
       fetchWithAuth<Room>(`/api/rooms/${id}`),
@@ -337,7 +475,6 @@ export const roomsApi = {
   },
 
   // Update the createBooking function in api.ts
-  // Update the createBooking function in api.ts
   createBooking: async (bookingData: BookingRequest): Promise<ApiResponse<Booking>> => {
     try {
       // Get the full date components
@@ -372,33 +509,6 @@ export const roomsApi = {
       };
     }
   }
-  };
-
-
-// Option 1: Improved standalone implementation using your fetchWithAuth utility
-export const updateRoom = async (roomId: number | string, roomData: Partial<Room>): Promise<ApiResponse<Room>> => {
-  // Format the data to match what the backend expects
-  const requestData = {
-    name: roomData.name,
-    category: roomData.category || roomData.type, // Support both field names
-    capacity: roomData.capacity,
-    status: roomData.status
-  };
-
-  return fetchWithAuth<Room>(`/api/admin/room/${roomId}`, 'PUT', requestData);
-};
-
-// Option 2: Add this method to your existing roomsApi object
-roomsApi.updateRoom = async (roomId: string | number, roomData: Partial<Room>): Promise<ApiResponse<Room>> => {
-  // Format the data to match what the backend expects
-  const requestData = {
-    name: roomData.name,
-    category: roomData.category || roomData.type, // Support both field names
-    capacity: roomData.capacity,
-    status: roomData.status
-  };
-
-  return fetchWithAuth<Room>(`/api/admin/room/${roomId}`, 'PUT', requestData);
 };
 
 // Bookings API
@@ -438,6 +548,11 @@ export const bookingsApi = {
 
   getUserBookings: () =>
       fetchWithAuth<Booking[]>('/api/bookings/user'),
+
+  // Create bulk booking for multiple staff (moved to staffApi for clarity)
+  createBulkBooking: async (bookingData: BulkBookingRequest): Promise<ApiResponse<any>> => {
+    return staffApi.createBulkBooking(bookingData);
+  }
 };
 
 // Users API
@@ -469,3 +584,5 @@ export const settingsApi = {
   update: (settings: Record<string, any>) =>
       fetchWithAuth<Record<string, any>>('/api/settings', 'PUT', settings)
 };
+
+export const bookingApi = bookingsApi;
