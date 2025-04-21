@@ -16,7 +16,9 @@ import {
   Loader2,
   RefreshCw,
   Search,
-  Filter
+  Filter,
+  Briefcase,
+  Badge
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -66,6 +68,10 @@ interface Booking {
   building?: string;
   key_given?: boolean;
   key_taken?: boolean;
+  user_role?: string; // To identify staff/student bookings
+  is_staff_booking?: boolean; // Flag for bookings made by staff
+  staff_ids?: number[]; // For staff bulk bookings
+  staff_names?: string[]; // Names of staff members
 }
 
 interface Violation {
@@ -90,7 +96,10 @@ interface Stats {
   totalRooms: number;
   recentUsers: User[];
   recentBookings: Booking[];
+  recentStaffBookings: Booking[];
   activeKeys: Booking[];
+  activeBookingsList: Booking[];
+  bulkBookings: Booking[];  // Add this line
   violationData: Violation[];
   statistics: {
     totalBookings: number;
@@ -101,6 +110,7 @@ interface Stats {
     userTrend: string;
     utilizationTrend: string;
     bookingTimeTrend: string;
+    staffBookingsCount: number;  // Add this line
   };
 }
 
@@ -152,6 +162,9 @@ const safeDifferenceInMinutes = (dateA: Date | null, dateB: Date | null): number
   }
 };
 
+
+
+
 const AdminDashboard = () => {
   const [currentTab, setCurrentTab] = useState("overview");
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -164,6 +177,7 @@ const AdminDashboard = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [violations, setViolations] = useState<Violation[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [bulkBookings, setBulkBookings] = useState<Booking[]>([]);
 
   // Current user and time
   const [currentUser, setCurrentUser] = useState<string>("lilnurik");
@@ -172,6 +186,7 @@ const AdminDashboard = () => {
   // Filter states
   const [bookingSearchQuery, setBookingSearchQuery] = useState<string>("");
   const [bookingStatusFilter, setBookingStatusFilter] = useState<string>("all");
+  const [bookingUserTypeFilter, setBookingUserTypeFilter] = useState<string>("all"); // Added for user type filter (staff/student)
 
   const [userSearchQuery, setUserSearchQuery] = useState<string>("");
   const [userRoleFilter, setUserRoleFilter] = useState<string>("all");
@@ -203,6 +218,51 @@ const AdminDashboard = () => {
     }
   }, [rooms, users, bookings, violations]);
 
+
+  const fetchBulkBookings = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      console.log("Fetching bulk bookings from API...");
+      const response = await fetch(`${API_BASE_URL}/bookings/get-bulk`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Bulk bookings data:", data);
+
+      // Process the bulk bookings data
+      const processedBulkBookings = data.map((booking: any) => ({
+        ...booking,
+        is_staff_booking: true,
+        user_role: 'staff',
+        building: booking.room_name?.split(' - ')[0] || 'Основной корпус',
+        // Ensure dates are in proper format
+        from_date: booking.from_date || new Date().toISOString(),
+        until_date: booking.until_date || new Date().toISOString(),
+        created_at: booking.created_at || new Date().toISOString()
+      }));
+
+      setBulkBookings(processedBulkBookings);
+    } catch (err) {
+      console.error("Error fetching bulk bookings:", err);
+      // No need to throw, we'll just have empty bulk bookings
+    }
+  };
+
+
   // Load all data from the API
   const loadAllData = async () => {
     setIsLoading(true);
@@ -213,6 +273,7 @@ const AdminDashboard = () => {
         fetchRooms(),
         fetchUsers(),
         fetchBookings(),
+        fetchBulkBookings(), // Add this line
         fetchViolations()
       ]);
     } catch (err) {
@@ -304,6 +365,8 @@ const AdminDashboard = () => {
         { id: 1, username: "ivan", full_name: "Иван Иванов", email: "ivan@example.com", role: "student", status: "active", created_at: "2025-03-05T12:00:00" },
         { id: 2, username: "anna", full_name: "Анна Смирнова", email: "anna@example.com", role: "student", status: "active", created_at: "2025-03-06T10:00:00" },
         { id: 3, username: "petr", full_name: "Петр Сидоров", email: "petr@example.com", role: "student", status: "blocked", created_at: "2025-03-01T11:30:00" },
+        { id: 4, username: "maria", full_name: "Мария Кузнецова", email: "maria@example.com", role: "staff", status: "active", created_at: "2025-02-20T08:15:00" },
+        { id: 5, username: "alexey", full_name: "Алексей Попов", email: "alexey@example.com", role: "staff", status: "active", created_at: "2025-02-10T16:30:00" },
         { id: 201, username: "sergey", full_name: "Сергей Петров", email: "sergey@example.com", role: "security", status: "active", created_at: "2025-02-15T14:20:00" },
         { id: 301, username: "lilnurik", full_name: "Елена Волкова", email: "elena@example.com", role: "admin", status: "active", created_at: "2025-01-10T09:45:00" }
       ];
@@ -375,7 +438,8 @@ const AdminDashboard = () => {
           until_date: format(addHours(subDays(now, 1), 2), "yyyy-MM-dd'T'HH:mm:ss"),
           status: "confirmed",
           created_at: format(subDays(now, 2), "yyyy-MM-dd'T'HH:mm:ss"),
-          building: "Главный корпус"
+          building: "Главный корпус",
+          user_role: "student"
         },
         {
           id: 102,
@@ -389,7 +453,8 @@ const AdminDashboard = () => {
           until_date: format(addHours(now, 2), "yyyy-MM-dd'T'HH:mm:ss"),
           status: "given",
           created_at: format(subDays(now, 1), "yyyy-MM-dd'T'HH:mm:ss"),
-          building: "Библиотека"
+          building: "Библиотека",
+          user_role: "student"
         },
         {
           id: 103,
@@ -403,7 +468,8 @@ const AdminDashboard = () => {
           until_date: format(addHours(addDays(now, 1), 2), "yyyy-MM-dd'T'HH:mm:ss"),
           status: "pending",
           created_at: format(subDays(now, 1), "yyyy-MM-dd'T'HH:mm:ss"),
-          building: "Главный корпус"
+          building: "Главный корпус",
+          user_role: "student"
         },
         {
           id: 104,
@@ -417,7 +483,8 @@ const AdminDashboard = () => {
           until_date: format(addHours(now, 3), "yyyy-MM-dd'T'HH:mm:ss"),
           status: "given",
           created_at: format(subDays(now, 2), "yyyy-MM-dd'T'HH:mm:ss"),
-          building: "Лабораторный корпус"
+          building: "Лабораторный корпус",
+          user_role: "student"
         },
         {
           id: 105,
@@ -431,7 +498,66 @@ const AdminDashboard = () => {
           until_date: format(addHours(subDays(now, 5), 2), "yyyy-MM-dd'T'HH:mm:ss"),
           status: "taken",
           created_at: format(subDays(now, 7), "yyyy-MM-dd'T'HH:mm:ss"),
-          building: "Библиотека"
+          building: "Библиотека",
+          user_role: "student"
+        },
+        // Staff bookings
+        {
+          id: 201,
+          room_id: 1,
+          room_name: "A101",
+          room_capacity: 30,
+          room_category: "Учебная",
+          username: "maria",
+          full_name: "Мария Кузнецова",
+          from_date: format(now, "yyyy-MM-dd'T'HH:mm:ss"),
+          until_date: format(addHours(now, 2), "yyyy-MM-dd'T'HH:mm:ss"),
+          status: "confirmed",
+          purpose: "Совещание отдела",
+          created_at: format(subDays(now, 1), "yyyy-MM-dd'T'HH:mm:ss"),
+          building: "Главный корпус",
+          user_role: "staff",
+          is_staff_booking: true,
+          staff_ids: [4, 5, 6],
+          staff_names: ["Мария Кузнецова", "Алексей Попов", "Ольга Соколова"]
+        },
+        {
+          id: 202,
+          room_id: 4,
+          room_name: "B203",
+          room_capacity: 15,
+          room_category: "Конференц-зал",
+          username: "alexey",
+          full_name: "Алексей Попов",
+          from_date: format(addDays(now, 2), "yyyy-MM-dd'T'HH:mm:ss"),
+          until_date: format(addHours(addDays(now, 2), 3), "yyyy-MM-dd'T'HH:mm:ss"),
+          status: "pending",
+          purpose: "Презентация проекта",
+          created_at: format(subDays(now, 2), "yyyy-MM-dd'T'HH:mm:ss"),
+          building: "Библиотека",
+          user_role: "staff",
+          is_staff_booking: true,
+          staff_ids: [5, 7, 8],
+          staff_names: ["Алексей Попов", "Иван Соловьев", "Екатерина Морозова"]
+        },
+        {
+          id: 203,
+          room_id: 2,
+          room_name: "A105",
+          room_capacity: 25,
+          room_category: "Учебная",
+          username: "maria",
+          full_name: "Мария Кузнецова",
+          from_date: format(subDays(now, 3), "yyyy-MM-dd'T'HH:mm:ss"),
+          until_date: format(addHours(subDays(now, 3), 1), "yyyy-MM-dd'T'HH:mm:ss"),
+          status: "taken",
+          purpose: "Тренинг для сотрудников",
+          created_at: format(subDays(now, 5), "yyyy-MM-dd'T'HH:mm:ss"),
+          building: "Главный корпус",
+          user_role: "staff",
+          is_staff_booking: true,
+          staff_ids: [4, 9, 10],
+          staff_names: ["Мария Кузнецова", "Дмитрий Васильев", "Татьяна Смирнова"]
         }
       ];
       setBookings(dummyBookings);
@@ -523,11 +649,14 @@ const AdminDashboard = () => {
   const calculateStats = () => {
     const now = new Date();
 
+    // Combine regular bookings with bulk bookings
+    const allBookings = [...bookings, ...bulkBookings];
+
     // Active bookings (approved or given today)
-    const activeBookings = bookings.filter(b => {
+    const activeBookings = allBookings.filter(b => {
       const fromDate = safeParseISO(b.from_date);
       const untilDate = safeParseISO(b.until_date);
-      return (b.status === 'approved' || b.status === 'given') &&
+      return (b.status === 'approved' || b.status === 'given' || b.status === 'confirmed') &&
           fromDate && untilDate &&
           isAfter(now, fromDate) &&
           isBefore(now, untilDate);
@@ -548,20 +677,20 @@ const AdminDashboard = () => {
     // Available rooms (total rooms minus rooms with active bookings)
     const roomsWithActiveBookings = new Set(activeBookings.map(b => b.room_id));
 
+    const availableRooms = rooms.filter(r =>
+        !roomsWithActiveBookings.has(typeof r.id === 'string' ? parseInt(r.id, 10) : r.id) && r.status !== 'maintenance'
+    );
 
- const availableRooms = rooms.filter(r =>
-     !roomsWithActiveBookings.has(typeof r.id === 'string' ? parseInt(r.id, 10) : r.id) && r.status !== 'maintenance'
- );
     // Active violations
     const activeViolations = violations.filter(v => v.status === 'pending');
 
     // Calculate trends - with safer date parsing
-    const lastWeekBookings = bookings.filter(b => {
+    const lastWeekBookings = allBookings.filter(b => {
       const createdDate = safeParseISO(b.created_at);
       return createdDate && safeDifferenceInDays(now, createdDate) <= 7;
     });
 
-    const previousWeekBookings = bookings.filter(b => {
+    const previousWeekBookings = allBookings.filter(b => {
       const createdDate = safeParseISO(b.created_at);
       return createdDate &&
           safeDifferenceInDays(now, createdDate) > 7 &&
@@ -595,8 +724,20 @@ const AdminDashboard = () => {
         })
         .slice(0, 3);
 
-    // Recent bookings
+    // Recent bookings - exclude staff bookings
     const recentBookings = bookings
+        .filter(b => !b.is_staff_booking && !b.user_role || b.user_role === 'student')
+        .sort((a, b) => {
+          const dateA = safeParseISO(a.created_at);
+          const dateB = safeParseISO(b.created_at);
+          if (!dateA || !dateB) return 0;
+          return dateB.getTime() - dateA.getTime();
+        })
+        .slice(0, 4);
+
+    // Recent staff bookings
+    const recentStaffBookings = allBookings
+        .filter(b => b.is_staff_booking || b.user_role === 'staff')
         .sort((a, b) => {
           const dateA = safeParseISO(a.created_at);
           const dateB = safeParseISO(b.created_at);
@@ -620,7 +761,7 @@ const AdminDashboard = () => {
     const roomUtilization = Math.round((roomsWithActiveBookings.size / (rooms.length || 1)) * 100);
 
     // Calculate average booking duration in hours
-    const completedBookings = bookings.filter(b => b.status === 'taken' || b.status === 'completed');
+    const completedBookings = allBookings.filter(b => b.status === 'taken' || b.status === 'completed');
     let totalDuration = 0;
     let validBookingCount = 0;
 
@@ -661,13 +802,15 @@ const AdminDashboard = () => {
       activeBookings: activeBookings.length,
       activeUsers: activeUsers.size,
       availableRooms: availableRooms.length,
-     // violations: activeViolations.length,
       bookingsTrend: `${bookingTrendPercent > 0 ? '+' : ''}${bookingTrendPercent}%`,
       usersTrend: `${userTrendPercent > 0 ? '+' : ''}${userTrendPercent}%`,
       totalRooms: rooms.length,
       recentUsers,
       recentBookings,
+      recentStaffBookings,
       activeKeys,
+      activeBookingsList: activeBookings,
+      bulkBookings: bulkBookings,
       violationData: activeViolations.sort((a, b) => {
         const dateA = safeParseISO(a.created_at);
         const dateB = safeParseISO(b.created_at);
@@ -675,14 +818,15 @@ const AdminDashboard = () => {
         return dateB.getTime() - dateA.getTime();
       }).slice(0, 3),
       statistics: {
-        totalBookings: bookings.length,
+        totalBookings: allBookings.length, // Updated to include bulk bookings
         activeUserCount: activeUsers.size,
         roomUtilization: roomUtilization,
         averageBookingTime: parseFloat(averageBookingHours),
         bookingTrend: `${bookingTrendPercent > 0 ? '+' : ''}${bookingTrendPercent}%`,
         userTrend: `${userTrendPercent > 0 ? '+' : ''}${userTrendPercent}%`,
         utilizationTrend: `${utilizationTrendPercent > 0 ? '+' : ''}${utilizationTrendPercent}%`,
-        bookingTimeTrend: `${bookingTimeTrendPercent > 0 ? '+' : ''}${bookingTimeTrendPercent}%`
+        bookingTimeTrend: `${bookingTimeTrendPercent > 0 ? '+' : ''}${bookingTimeTrendPercent}%`,
+        staffBookingsCount: bulkBookings.length,
       }
     });
   };
@@ -720,7 +864,12 @@ const AdminDashboard = () => {
       // Apply status filter
       const matchesStatus = bookingStatusFilter === "all" || booking.status === bookingStatusFilter;
 
-      return matchesSearch && matchesStatus;
+      // Apply user type filter (staff/student)
+      const matchesUserType = bookingUserTypeFilter === "all" ||
+          (bookingUserTypeFilter === "staff" && (booking.user_role === "staff" || booking.is_staff_booking)) ||
+          (bookingUserTypeFilter === "student" && booking.user_role === "student");
+
+      return matchesSearch && matchesStatus && matchesUserType;
     });
   };
 
@@ -957,8 +1106,6 @@ const AdminDashboard = () => {
                           </div>
                         </CardContent>
                       </Card>
-
-
                     </div>
                 )}
 
@@ -980,7 +1127,7 @@ const AdminDashboard = () => {
                             <CardHeader>
                               <CardTitle className="flex items-center gap-2">
                                 <Calendar className="h-5 w-5 text-primary" />
-                                Последние бронирования
+                                Последние бронирования студентов
                               </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -1018,9 +1165,68 @@ const AdminDashboard = () => {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setCurrentTab("bookings")}
+                                    onClick={() => {
+                                      setCurrentTab("bookings");
+                                      setBookingUserTypeFilter("student");
+                                    }}
                                 >
-                                  Показать все
+                                  Показать все студенческие брони
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Staff Bookings - New Card */}
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="flex items-center gap-2">
+                                <Briefcase className="h-5 w-5 text-primary" />
+                                Бронирования сотрудников
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Комната</TableHead>
+                                    <TableHead>Сотрудник</TableHead>
+                                    <TableHead>Дата</TableHead>
+                                    <TableHead>Участники</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {stats.recentStaffBookings && stats.recentStaffBookings.length > 0 ? (
+                                      stats.recentStaffBookings.map((booking) => (
+                                          <TableRow key={booking.id}>
+                                            <TableCell>{booking.room_name}</TableCell>
+                                            <TableCell>{booking.full_name}</TableCell>
+                                            <TableCell>{formatDate(booking.from_date)}</TableCell>
+                                            <TableCell>
+                                              {booking.staff_names ?
+                                                  `${booking.staff_names.length} чел.` :
+                                                  booking.attendees || '1'}
+                                            </TableCell>
+                                          </TableRow>
+                                      ))
+                                  ) : (
+                                      <TableRow>
+                                        <TableCell colSpan={4} className="text-center py-4">
+                                          Нет бронирований от сотрудников
+                                        </TableCell>
+                                      </TableRow>
+                                  )}
+                                </TableBody>
+                              </Table>
+                              <div className="mt-4 flex justify-center">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setCurrentTab("bookings");
+                                      setBookingUserTypeFilter("staff");
+                                    }}
+                                >
+                                  Показать все брони сотрудников
                                 </Button>
                               </div>
                             </CardContent>
@@ -1040,7 +1246,7 @@ const AdminDashboard = () => {
                                   <TableRow>
                                     <TableHead>Ключ</TableHead>
                                     <TableHead>Взят</TableHead>
-                                    <TableHead>Студент</TableHead>
+                                    <TableHead>Пользователь</TableHead>
                                     <TableHead>Статус</TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -1097,9 +1303,10 @@ const AdminDashboard = () => {
                                             </div>
                                           </div>
                                           <span className="text-xs rounded-full px-2 py-1 bg-secondary">
-                                  {user.role === "student" ? "Студент" :
-                                      user.role === "security" ? "Охранник" : "Администратор"}
-                                </span>
+                                            {user.role === "student" ? "Студент" :
+                                                user.role === "staff" ? "Сотрудник" :
+                                                    user.role === "security" ? "Охранник" : "Администратор"}
+                                          </span>
                                         </div>
                                     ))
                                 ) : (
@@ -1110,8 +1317,6 @@ const AdminDashboard = () => {
                               </div>
                             </CardContent>
                           </Card>
-
-
                         </div>
                     )}
                   </TabsContent>
@@ -1131,7 +1336,7 @@ const AdminDashboard = () => {
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 type="search"
-                                placeholder="Поиск по комнате или студенту..."
+                                placeholder="Поиск по комнате или пользователю..."
                                 className="pl-8"
                                 value={bookingSearchQuery}
                                 onChange={(e) => setBookingSearchQuery(e.target.value)}
@@ -1157,6 +1362,24 @@ const AdminDashboard = () => {
                               <SelectItem value="taken">Завершенные</SelectItem>
                             </SelectContent>
                           </Select>
+
+                          {/* New User Type Filter */}
+                          <Select
+                              value={bookingUserTypeFilter}
+                              onValueChange={setBookingUserTypeFilter}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                <SelectValue placeholder="Тип пользователя" />
+                              </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Все пользователи</SelectItem>
+                              <SelectItem value="student">Студенты</SelectItem>
+                              <SelectItem value="staff">Сотрудники</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div className="rounded-md border">
@@ -1165,7 +1388,8 @@ const AdminDashboard = () => {
                               <TableRow>
                                 <TableHead>ID</TableHead>
                                 <TableHead>Комната</TableHead>
-                                <TableHead>Студент</TableHead>
+                                <TableHead>Пользователь</TableHead>
+                                <TableHead>Тип</TableHead>
                                 <TableHead>Дата</TableHead>
                                 <TableHead>Время</TableHead>
                                 <TableHead>Статус</TableHead>
@@ -1179,6 +1403,12 @@ const AdminDashboard = () => {
                                         <TableCell>{booking.id}</TableCell>
                                         <TableCell>{booking.room_name}</TableCell>
                                         <TableCell>{booking.full_name}</TableCell>
+                                        <TableCell>
+                                          {booking.is_staff_booking || booking.user_role === 'staff' ?
+                                              <Badge className="bg-blue-100 text-blue-800">Сотрудник</Badge> :
+                                              <Badge>Студент</Badge>
+                                          }
+                                        </TableCell>
                                         <TableCell>{formatDate(booking.from_date)}</TableCell>
                                         <TableCell>{formatTime(booking.from_date)} - {formatTime(booking.until_date)}</TableCell>
                                         <TableCell>
@@ -1229,7 +1459,7 @@ const AdminDashboard = () => {
                                   ))
                               ) : (
                                   <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24">
+                                    <TableCell colSpan={8} className="text-center h-24">
                                       <div className="text-muted-foreground">
                                         Бронирования не найдены
                                       </div>
@@ -1253,7 +1483,7 @@ const AdminDashboard = () => {
                       </CardHeader>
                       <CardContent>
                         {/* Filters */}
-                        <div className="flex flex-col md:flex-row gap-4 mb-4">
+                       <div className="flex flex-col md:flex-row gap-4 mb-4">
                           <div className="relative flex-1">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -1270,327 +1500,350 @@ const AdminDashboard = () => {
                               onValueChange={setUserRoleFilter}
                           >
                             <SelectTrigger className="w-[180px]">
-                              <div className="flex items-center gap-2">
-                                <Filter className="h-4 w-4" />
-                                <SelectValue placeholder="Роль" />
-                              </div>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Все роли</SelectItem>
-                              <SelectItem value="student">Студенты</SelectItem>
-                              <SelectItem value="security">Охранники</SelectItem>
-                              <SelectItem value="admin">Администраторы</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <div className="flex items-center gap-2">
+                          <Filter className="h-4 w-4" />
+                          <SelectValue placeholder="Роль" />
                         </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Все роли</SelectItem>
+                        <SelectItem value="student">Студенты</SelectItem>
+                        <SelectItem value="staff">Сотрудники</SelectItem>
+                        <SelectItem value="security">Охранники</SelectItem>
+                        <SelectItem value="admin">Администраторы</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>ID</TableHead>
-                                <TableHead>Имя</TableHead>
-                                <TableHead>Логин</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Роль</TableHead>
-                                <TableHead>Статус</TableHead>
-                                <TableHead>Действия</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {getFilteredUsers().length > 0 ? (
-                                  getFilteredUsers().slice(0, 10).map((user) => (
-                                      <TableRow key={user.id}>
-                                        <TableCell>{user.id}</TableCell>
-                                        <TableCell>{user.full_name}</TableCell>
-                                        <TableCell>{user.username}</TableCell>
-                                        <TableCell>{user.email}</TableCell>
-                                        <TableCell>
-                                          {user.role === "student" ? "Студент" :
-                                              user.role === "security" ? "Охранник" : "Администратор"}
-                                        </TableCell>
-                                        <TableCell>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Имя</TableHead>
+                          <TableHead>Логин</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Роль</TableHead>
+                          <TableHead>Статус</TableHead>
+                          <TableHead>Действия</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {getFilteredUsers().length > 0 ? (
+                            getFilteredUsers().slice(0, 10).map((user) => (
+                                <TableRow key={user.id}>
+                                  <TableCell>{user.id}</TableCell>
+                                  <TableCell>{user.full_name}</TableCell>
+                                  <TableCell>{user.username}</TableCell>
+                                  <TableCell>{user.email}</TableCell>
+                                  <TableCell>
+                                    {user.role === "student" ? "Студент" :
+                                        user.role === "staff" ? "Сотрудник" :
+                                            user.role === "security" ? "Охранник" : "Администратор"}
+                                  </TableCell>
+                                  <TableCell>
                                   <span className={`px-2 py-1 rounded-full text-xs ${
                                       user.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
                                   }`}>
                                     {user.status === "active" ? "Активен" : "Заблокирован"}
                                   </span>
-                                        </TableCell>
-                                        <TableCell>
-                                          <div className="flex gap-2">
-                                            <Button size="sm" variant="outline">Редактировать</Button>
-                                            {user.status === "active" ? (
-                                                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                                                  Блокировать
-                                                </Button>
-                                            ) : (
-                                                <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
-                                                  Разблокировать
-                                                </Button>
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                  ))
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-2">
+                                      <Button size="sm" variant="outline">Редактировать</Button>
+                                      {user.status === "active" ? (
+                                          <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                                            Блокировать
+                                          </Button>
+                                      ) : (
+                                          <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
+                                            Разблокировать
+                                          </Button>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center h-24">
+                                <div className="text-muted-foreground">
+                                  Пользователи не найдены
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="rooms">
+            <Card>
+            <CardHeader>
+            <CardTitle>Управление помещениями</CardTitle>
+            <CardDescription>
+            Просмотр и управление помещениями университета
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                  type="search"
+                  placeholder="Поиск по названию или типу..."
+                  className="pl-8"
+                  value={roomSearchQuery}
+                  onChange={(e) => setRoomSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <Select
+                value={roomBuildingFilter}
+                onValueChange={setRoomBuildingFilter}
+            >
+              <SelectTrigger className="w-[180px]">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  <SelectValue placeholder="Здание" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все здания</SelectItem>
+                {getUniqueBuildings().map(building => (
+                    <SelectItem key={building} value={building}>{building}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Комната</TableHead>
+                  <TableHead>Здание</TableHead>
+                  <TableHead>Тип</TableHead>
+                  <TableHead>Вместимость</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {getFilteredRooms().length > 0 ? (
+                    getFilteredRooms().slice(0, 10).map((room) => (
+                        <TableRow key={room.id}>
+                          <TableCell>{room.name}</TableCell>
+                          <TableCell>{room.building}</TableCell>
+                          <TableCell>{room.category}</TableCell>
+                          <TableCell>{room.capacity}</TableCell>
+                          <TableCell>
+                            <StatusBadge status={room.status || 'available'} />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline">Расписание</Button>
+                              {room.status === "available" ? (
+                                  <Button size="sm" variant="outline" className="text-orange-600 hover:text-orange-700">
+                                    На обслуживание
+                                  </Button>
                               ) : (
-                                  <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24">
-                                      <div className="text-muted-foreground">
-                                        Пользователи не найдены
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
+                                  <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
+                                    Включить
+                                  </Button>
                               )}
-                            </TableBody>
-                          </Table>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                    ))
+                ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center h-24">
+                        <div className="text-muted-foreground">
+                          Помещения не найдены
                         </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
+                      </TableCell>
+                    </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+</TabsContent>
 
-                  <TabsContent value="rooms">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Управление помещениями</CardTitle>
-                        <CardDescription>
-                          Просмотр и управление помещениями университета
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {/* Filters */}
-                        <div className="flex flex-col md:flex-row gap-4 mb-4">
-                          <div className="relative flex-1">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                type="search"
-                                placeholder="Поиск по названию или типу..."
-                                className="pl-8"
-                                value={roomSearchQuery}
-                                onChange={(e) => setRoomSearchQuery(e.target.value)}
-                            />
-                          </div>
-
-                          <Select
-                              value={roomBuildingFilter}
-                              onValueChange={setRoomBuildingFilter}
-                          >
-                            <SelectTrigger className="w-[180px]">
-                              <div className="flex items-center gap-2">
-                                <Filter className="h-4 w-4" />
-                                <SelectValue placeholder="Здание" />
-                              </div>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Все здания</SelectItem>
-                              {getUniqueBuildings().map(building => (
-                                  <SelectItem key={building} value={building}>{building}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Комната</TableHead>
-                                <TableHead>Здание</TableHead>
-                                <TableHead>Тип</TableHead>
-                                <TableHead>Вместимость</TableHead>
-                                <TableHead>Статус</TableHead>
-                                <TableHead>Действия</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {getFilteredRooms().length > 0 ? (
-                                  getFilteredRooms().slice(0, 10).map((room) => (
-                                      <TableRow key={room.id}>
-                                        <TableCell>{room.name}</TableCell>
-                                        <TableCell>{room.building}</TableCell>
-                                        <TableCell>{room.category}</TableCell>
-                                        <TableCell>{room.capacity}</TableCell>
-                                        <TableCell>
-                                          <StatusBadge status={room.status || 'available'} />
-                                        </TableCell>
-                                        <TableCell>
-                                          <div className="flex gap-2">
-                                            <Button size="sm" variant="outline">Расписание</Button>
-                                            {room.status === "available" ? (
-
-                                              <Button size="sm" variant="outline" className="text-orange-600 hover:text-orange-700">
-                                              На обслуживание
-                                              </Button>
-                                              ) : (
-                                              <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
-                                              Включить
-                                              </Button>
-                                              )}
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                  ))
-                              ) : (
-                                  <TableRow>
-                                    <TableCell colSpan={6} className="text-center h-24">
-                                      <div className="text-muted-foreground">
-                                        Помещения не найдены
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-
-                  <TabsContent value="analytics">
-                    <Card>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle>Аналитика использования</CardTitle>
-                          <BarChart3 className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <CardDescription>
-                          Статистика использования системы бронирования
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {stats && (
-                            <>
-                              <div className="flex justify-center items-center h-64 bg-muted/20 rounded-md">
-                                <p className="text-center text-muted-foreground">
-                                  Здесь будет отображаться графическая аналитика <br/>
-                                  Требуется добавление компонента графиков
-                                </p>
-                              </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-                                <Card>
-                                  <CardContent className="p-4">
-                                    <p className="text-sm text-muted-foreground">Всего бронирований</p>
-                                    <div className="flex items-center justify-between mt-1">
-                                      <p className="text-2xl font-bold">{stats.statistics.totalBookings}</p>
-                                      <span className={`text-xs ${
-                                          stats.statistics.bookingTrend.startsWith("+") ? "text-green-600" : "text-red-600"
-                                      }`}>
+  <TabsContent value="analytics">
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Аналитика использования</CardTitle>
+          <BarChart3 className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <CardDescription>
+          Статистика использования системы бронирования
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {stats && (
+            <>
+              <div className="flex justify-center items-center h-64 bg-muted/20 rounded-md">
+                <p className="text-center text-muted-foreground">
+                  Здесь будет отображаться графическая аналитика <br/>
+                  Требуется добавление компонента графиков
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-sm text-muted-foreground">Всего бронирований</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-2xl font-bold">{stats.statistics.totalBookings}</p>
+                      <span className={`text-xs ${
+                          stats.statistics.bookingTrend.startsWith("+") ? "text-green-600" : "text-red-600"
+                      }`}>
                                 {stats.statistics.bookingTrend}
                               </span>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                                <Card>
-                                  <CardContent className="p-4">
-                                    <p className="text-sm text-muted-foreground">Активные пользователи</p>
-                                    <div className="flex items-center justify-between mt-1">
-                                      <p className="text-2xl font-bold">{stats.statistics.activeUserCount}</p>
-                                      <span className={`text-xs ${
-                                          stats.statistics.userTrend.startsWith("+") ? "text-green-600" : "text-red-600"
-                                      }`}>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-sm text-muted-foreground">Активные пользователи</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-2xl font-bold">{stats.statistics.activeUserCount}</p>
+                      <span className={`text-xs ${
+                          stats.statistics.userTrend.startsWith("+") ? "text-green-600" : "text-red-600"
+                      }`}>
                                 {stats.statistics.userTrend}
                               </span>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                                <Card>
-                                  <CardContent className="p-4">
-                                    <p className="text-sm text-muted-foreground">Загруженность комнат</p>
-                                    <div className="flex items-center justify-between mt-1">
-                                      <p className="text-2xl font-bold">{stats.statistics.roomUtilization}%</p>
-                                      <span className={`text-xs ${
-                                          stats.statistics.utilizationTrend.startsWith("+") ? "text-green-600" : "text-red-600"
-                                      }`}>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-sm text-muted-foreground">Загруженность комнат</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-2xl font-bold">{stats.statistics.roomUtilization}%</p>
+                      <span className={`text-xs ${
+                          stats.statistics.utilizationTrend.startsWith("+") ? "text-green-600" : "text-red-600"
+                      }`}>
                                 {stats.statistics.utilizationTrend}
                               </span>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                                <Card>
-                                  <CardContent className="p-4">
-                                    <p className="text-sm text-muted-foreground">Среднее время брони</p>
-                                    <div className="flex items-center justify-between mt-1">
-                                      <p className="text-2xl font-bold">{stats.statistics.averageBookingTime}ч</p>
-                                      <span className={`text-xs ${
-                                          stats.statistics.bookingTimeTrend.startsWith("+") ? "text-green-600" : "text-red-600"
-                                      }`}>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-sm text-muted-foreground">Среднее время брони</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-2xl font-bold">{stats.statistics.averageBookingTime}ч</p>
+                      <span className={`text-xs ${
+                          stats.statistics.bookingTimeTrend.startsWith("+") ? "text-green-600" : "text-red-600"
+                      }`}>
                                 {stats.statistics.bookingTimeTrend}
                               </span>
-                                    </div>
-                                  </CardContent>
-                                </Card>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                                {/* Additional analytics cards could go here */}
-                                <Card className="col-span-2 sm:col-span-4">
-                                  <CardContent className="p-4">
-                                    <h3 className="font-medium mb-2">Самые популярные аудитории</h3>
-                                    <div className="space-y-2">
-                                      {rooms.slice(0, 3).map((room, index) => {
-                                        const bookingsCount = bookings.filter(b => b.room_id === room.id).length;
-                                        const percentage = rooms.length > 0 ? Math.round((bookingsCount / bookings.length) * 100) : 0;
+                {/* Staff Booking Analytics Card */}
+                <Card className="col-span-2">
+                  <CardContent className="p-4">
+                    <h3 className="font-medium mb-2">Бронирования сотрудников</h3>
+                    <div className="text-sm text-muted-foreground mb-3">
+                      Статистика использования системы сотрудниками
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span>Количество бронирований:</span>
+                        <span className="font-medium">
+          {stats.bulkBookings.length}
+        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Активных бронирований:</span>
+                        <span className="font-medium">
+          {stats.activeBookingsList.filter(b => b.is_staff_booking || b.user_role === 'staff').length}
+        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Сотрудников с бронями:</span>
+                        <span className="font-medium">
+          {new Set([...stats.bulkBookings.map(b => b.username)]).size}
+        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                                        return (
-                                            <div key={room.id} className="flex items-center gap-2">
-                                              <div className="font-medium text-sm min-w-[100px]">{room.name}</div>
-                                              <div className="flex-1 bg-muted rounded-full h-2">
-                                                <div
-                                                    className="bg-primary rounded-full h-2"
-                                                    style={{ width: `${percentage}%` }}
-                                                ></div>
-                                              </div>
-                                              <div className="text-xs text-muted-foreground min-w-[40px] text-right">
-                                                {percentage}%
-                                              </div>
-                                            </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </CardContent>
-                                </Card>
+                {/* Additional analytics cards could go here */}
+                <Card className="col-span-2">
+                  <CardContent className="p-4">
+                    <h3 className="font-medium mb-2">Самые популярные аудитории</h3>
+                    <div className="space-y-2">
+                      {rooms.slice(0, 3).map((room, index) => {
+                        const bookingsCount = bookings.filter(b => b.room_id === room.id).length;
+                        const percentage = rooms.length > 0 ? Math.round((bookingsCount / bookings.length) * 100) : 0;
+
+                        return (
+                            <div key={room.id} className="flex items-center gap-2">
+                              <div className="font-medium text-sm min-w-[100px]">{room.name}</div>
+                              <div className="flex-1 bg-muted rounded-full h-2">
+                                <div
+                                    className="bg-primary rounded-full h-2"
+                                    style={{ width: `${percentage}%` }}
+                                ></div>
                               </div>
-
-                              {/* System status and health section */}
-                              <div className="mt-8">
-                                <h3 className="font-medium mb-4">Системная информация</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                  <div className="bg-muted/20 p-4 rounded-md">
-                                    <p className="text-sm text-muted-foreground">Текущее время</p>
-                                    <p className="font-mono text-sm mt-1">{currentDateTime}</p>
-                                  </div>
-                                  <div className="bg-muted/20 p-4 rounded-md">
-                                    <p className="text-sm text-muted-foreground">Текущий пользователь</p>
-                                    <p className="font-mono text-sm mt-1">{currentUser}</p>
-                                  </div>
-                                  <div className="bg-muted/20 p-4 rounded-md">
-                                    <p className="text-sm text-muted-foreground">База данных</p>
-                                    <p className="font-mono text-sm mt-1 text-green-600">Подключена</p>
-                                  </div>
-                                  <div className="bg-muted/20 p-4 rounded-md">
-                                    <p className="text-sm text-muted-foreground">Последнее обновление</p>
-                                    <p className="font-mono text-sm mt-1">
-                                      {isRefreshing ? "Обновляется..." : (
-                                          new Date().toLocaleTimeString("ru-RU", {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                            second: "2-digit",
-                                          })
-                                      )}
-                                    </p>
-                                  </div>
-                                </div>
+                              <div className="text-xs text-muted-foreground min-w-[40px] text-right">
+                                {percentage}%
                               </div>
-                            </>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                </Tabs>
-              </>
-          )}
+                            </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
-
-        </div>
-      </PageLayout>
-  );
+              {/* System status and health section */}
+              <div className="mt-8">
+                <h3 className="font-medium mb-4">Системная информация</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-muted/20 p-4 rounded-md">
+                    <p className="text-sm text-muted-foreground">Текущее время</p>
+                    <p className="font-mono text-sm mt-1">{currentDateTime}</p>
+                  </div>
+                  <div className="bg-muted/20 p-4 rounded-md">
+                    <p className="text-sm text-muted-foreground">Текущий пользователь</p>
+                    <p className="font-mono text-sm mt-1">{currentUser}</p>
+                  </div>
+                  <div className="bg-muted/20 p-4 rounded-md">
+                    <p className="text-sm text-muted-foreground">База данных</p>
+                    <p className="font-mono text-sm mt-1 text-green-600">Подключена</p>
+                  </div>
+                  <div className="bg-muted/20 p-4 rounded-md">
+                    <p className="text-sm text-muted-foreground">Последнее обновление</p>
+                    <p className="font-mono text-sm mt-1">
+                      {isRefreshing ? "Обновляется..." : "08:27:32"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+        )}
+      </CardContent>
+    </Card>
+  </TabsContent>
+</Tabs>
+</>
+)}
+</div>
+</PageLayout>
+);
 };
 
 export default AdminDashboard;

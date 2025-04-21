@@ -386,7 +386,7 @@ const BookingPage = () => {
     };
 
     return (
-        <PageLayout role="staff">
+        <PageLayout role="employee">
             <div className="space-y-6">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Бронирование помещений</h1>

@@ -9,7 +9,8 @@ import { Progress } from "@/components/ui/progress";
 import {
   Search, Clock, User, Calendar, CheckCircle, X,
   Calendar as CalendarIcon, Loader2, ChevronLeft, ChevronRight,
-  Filter, DownloadIcon, RefreshCw, AlertTriangle, Lock, RotateCw
+  Filter, DownloadIcon, RefreshCw, AlertTriangle, Lock, RotateCw,
+  Briefcase, Users, UserCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,13 +33,20 @@ import {
 interface Booking {
   id: number;
   room_name: string;
+  room_id: number;
   username: string;
   full_name: string;
   from_date: string;
   until_date: string;
   status: string;
   created_at: string;
-  access_code?: string; // Optional field
+  access_code?: string;
+  purpose?: string;
+  attendees_count?: number;
+  is_staff_booking?: boolean;
+  creator_role?: string;
+  staff_ids?: number[];
+  staff_names?: string[];
 }
 
 // Global state to track if sync is in progress anywhere in the app
@@ -47,17 +55,22 @@ let isGlobalSyncInProgress = false;
 const AdminBookingsPage = () => {
   // State variables
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [studentBookings, setStudentBookings] = useState<Booking[]>([]);
+  const [staffBookings, setStaffBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Current user and datetime
-  const [currentDateTime, setCurrentDateTime] = useState("2025-04-08 08:18:48");
+  // Current user and datetime - updated with correct values
+  const [currentDateTime, setCurrentDateTime] = useState("2025-04-21 12:09:47");
   const [currentUser, setCurrentUser] = useState("lilnurik");
 
   // Status filter
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+
+  // User type filter for bookings (student/staff)
+  const [selectedUserType, setSelectedUserType] = useState<string>("all");
 
   // Date range filter
   const [dateFilter, setDateFilter] = useState({
@@ -80,6 +93,9 @@ const AdminBookingsPage = () => {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
 
+  // Active tab state
+  const [activeTab, setActiveTab] = useState("all");
+
   // Schedule sync states
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
   const [isSyncWarningOpen, setIsSyncWarningOpen] = useState(false);
@@ -93,13 +109,13 @@ const AdminBookingsPage = () => {
 
   // Fetch bookings on component mount
   useEffect(() => {
-    fetchBookings();
+    loadAllBookings();
   }, []);
 
   // Update the current date/time periodically
   useEffect(() => {
     // Start with correct time
-    setCurrentDateTime("2025-04-08 08:18:48");
+    setCurrentDateTime("2025-04-21 12:09:47");
 
     // Update time every minute
     const timeInterval = setInterval(() => {
@@ -120,7 +136,7 @@ const AdminBookingsPage = () => {
   // Filter bookings whenever data or filters change
   useEffect(() => {
     applyFilters();
-  }, [bookings, searchTerm, selectedStatus, dateFilter]);
+  }, [bookings, searchTerm, selectedStatus, selectedUserType, dateFilter, activeTab]);
 
   // Update totalPages when filteredBookings or itemsPerPage changes
   useEffect(() => {
@@ -140,9 +156,23 @@ const AdminBookingsPage = () => {
     };
   }, []);
 
-  // Fetch bookings from API
-  const fetchBookings = async () => {
+  // Load all types of bookings
+  const loadAllBookings = async () => {
     setIsLoading(true);
+    try {
+      await Promise.all([
+        fetchRegularBookings(),
+        fetchBulkBookings()
+      ]);
+    } catch (err) {
+      console.error("Error loading bookings:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch regular bookings from API
+  const fetchRegularBookings = async () => {
     setError(null);
 
     try {
@@ -150,11 +180,10 @@ const AdminBookingsPage = () => {
 
       if (!token) {
         setError("No authentication token found");
-        setIsLoading(false);
         return;
       }
 
-      const response = await fetch('/api/admin/bookings', {
+      const response = await fetch('http://localhost:5321/api/admin/bookings', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -167,14 +196,93 @@ const AdminBookingsPage = () => {
       }
 
       const data = await response.json();
-      setBookings(data);
+
+      // Process to ensure all bookings have the required properties
+      const processedBookings = data.map((booking: any) => ({
+        ...booking,
+        is_staff_booking: booking.user_role === 'staff',
+        creator_role: booking.user_role || 'student',
+        status: booking.status || 'pending',
+        from_date: booking.from_date || new Date().toISOString(),
+        until_date: booking.until_date || new Date().toISOString(),
+        created_at: booking.created_at || new Date().toISOString()
+      }));
+
+      setStudentBookings(processedBookings.filter(b => b.user_role !== 'staff' && !b.is_staff_booking));
+      const staffBooks = processedBookings.filter(b => b.user_role === 'staff' || b.is_staff_booking);
+      setStaffBookings(prev => [...prev, ...staffBooks]);
+      updateAllBookings([...processedBookings, ...staffBookings]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch bookings");
-      console.error("Error fetching bookings:", err);
-      toast.error("Failed to load bookings");
-    } finally {
-      setIsLoading(false);
+      console.error("Error fetching regular bookings:", err);
+      toast.error("Failed to load student bookings");
     }
+  };
+
+  // Fetch bulk staff bookings
+  const fetchBulkBookings = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+
+      if (!token) {
+        console.error("No authentication token found");
+        return;
+      }
+
+      const response = await fetch('http://localhost:5321/api/bookings/get-bulk', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error("Failed to fetch bulk bookings:", response.status);
+        return;
+      }
+
+      // Get the raw array directly from the response
+      const bookingsData = await response.json();
+
+      // Process and preserve all the original properties from the API
+      const processedBookings = bookingsData.map((booking: any) => ({
+        ...booking,
+        // Keep the original is_staff_booking flag, or default to creator_role if needed
+        is_staff_booking: booking.is_staff_booking !== undefined
+            ? booking.is_staff_booking
+            : (booking.creator_role === 'staff'),
+        // Ensure all required fields are present
+        from_date: booking.from_date || new Date().toISOString(),
+        until_date: booking.until_date || new Date().toISOString(),
+        created_at: booking.created_at || new Date().toISOString(),
+        // Ensure room data is complete
+        room_name: booking.room_name || "Unknown Room",
+        // Use creator info for username/full_name if not provided
+        username: booking.username || booking.creator_name || "Unknown User",
+        full_name: booking.full_name || booking.creator_name || "Unknown User",
+        // Make sure status has a default
+        status: booking.status || 'pending'
+      }));
+
+      console.log("Processed bulk bookings:", processedBookings);
+      setStaffBookings(prevStaffBookings => [
+        ...prevStaffBookings,
+        ...processedBookings.filter(b => b.is_staff_booking === true || b.creator_role === 'staff')
+      ]);
+      setStudentBookings(prevStudentBookings => [
+        ...prevStudentBookings,
+        ...processedBookings.filter(b => b.is_staff_booking !== true && b.creator_role === 'student')
+      ]);
+      updateAllBookings([...studentBookings, ...processedBookings]);
+    } catch (err) {
+      console.error("Error fetching bulk bookings:", err);
+    }
+  };
+
+  // Update all bookings
+  const updateAllBookings = (bookingsArray: Booking[]) => {
+    setBookings(bookingsArray);
   };
 
   // Verify admin password against the API
@@ -182,7 +290,7 @@ const AdminBookingsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch('/api/admin/verify-password', {
+      const response = await fetch('http://localhost:5321/api/admin/verify-password', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -192,7 +300,6 @@ const AdminBookingsPage = () => {
       });
 
       if (!response.ok) {
-        // If the status is 401, it means the password is incorrect
         if (response.status === 401) {
           return false;
         }
@@ -209,37 +316,30 @@ const AdminBookingsPage = () => {
 
   // Handle sync process with university class schedule
   const handleSyncRequest = () => {
-    // Check if sync is already in progress
     if (isGlobalSyncInProgress) {
-      // If sync is already in progress, just show the current progress
       setIsSyncProcessDialogOpen(true);
       toast.info("Синхронизация уже выполняется");
       return;
     }
 
-    // First show the warning dialog
     setIsSyncWarningOpen(true);
   };
 
   const handleSyncWarningConfirm = () => {
-    // Close warning dialog and show password confirmation
     setIsSyncWarningOpen(false);
     setIsSyncPasswordDialogOpen(true);
   };
 
   const handleSyncPasswordConfirm = async () => {
-    // Validate that password is not empty
     if (!adminPassword) {
       toast.error("Пожалуйста, введите пароль");
       return;
     }
 
-    // Show loading state
     setIsSyncing(true);
     setSyncStatusMessage("Проверка учетных данных...");
 
     try {
-      // Verify the password
       const isValid = await verifyAdminPassword(adminPassword);
 
       if (!isValid) {
@@ -248,16 +348,13 @@ const AdminBookingsPage = () => {
         return;
       }
 
-      // Close password dialog and show sync process dialog
       setIsSyncPasswordDialogOpen(false);
       setIsSyncProcessDialogOpen(true);
       setSyncProgress(0);
       setSyncStatusMessage("Инициализация синхронизации...");
 
-      // Set global sync flag
       isGlobalSyncInProgress = true;
 
-      // Define stages with realistic timing
       const syncStages = [
         { message: "Инициализация синхронизации...", targetProgress: 5, durationMs: 10000 },
         { message: "Подключение к университетской системе...", targetProgress: 10, durationMs: 20000 },
@@ -275,61 +372,49 @@ const AdminBookingsPage = () => {
       let stageStartTime = Date.now();
       let stageStartProgress = 0;
 
-      // Function to smoothly animate progress within a stage
       const animateStage = () => {
         const currentStage = syncStages[currentStageIndex];
         const now = Date.now();
         const elapsedTime = now - stageStartTime;
         const stageDuration = currentStage.durationMs;
 
-        // Calculate progress percentage within this stage
         let fractionComplete = Math.min(elapsedTime / stageDuration, 1);
-
-        // Apply easing function for smoother animation
         fractionComplete = 0.5 - 0.5 * Math.cos(fractionComplete * Math.PI);
 
         const previousStageProgress = stageStartProgress;
         const stageProgressDelta = currentStage.targetProgress - previousStageProgress;
         const newProgress = previousStageProgress + (stageProgressDelta * fractionComplete);
 
-        // Update progress
         setSyncProgress(Math.floor(newProgress));
 
-        // If stage is complete, move to next stage
         if (elapsedTime >= stageDuration) {
           currentStageIndex++;
           stageStartTime = now;
           stageStartProgress = currentStage.targetProgress;
 
-          // If there are more stages, update message and continue
           if (currentStageIndex < syncStages.length) {
             setSyncStatusMessage(syncStages[currentStageIndex].message);
           } else {
-            // If all stages are complete, finish animation
             setSyncProgress(100);
             setSyncStatusMessage("Синхронизация успешно завершена!");
 
-            // Clear the animation interval
             if (syncIntervalRef.current) {
               clearInterval(syncIntervalRef.current);
               syncIntervalRef.current = null;
             }
 
-            // Reset global sync flag after completion
             isGlobalSyncInProgress = false;
             setIsSyncing(false);
           }
         }
       };
 
-      // Start the animation
       setSyncStatusMessage(syncStages[currentStageIndex].message);
-      syncIntervalRef.current = window.setInterval(animateStage, 50); // Update more frequently for smoother animation
+      syncIntervalRef.current = window.setInterval(animateStage, 50);
 
-      // Make the actual API call
       try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch('/api/admin/sync-class-schedules', {
+        const response = await fetch('http://localhost:5321/api/admin/sync-class-schedules', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -338,20 +423,13 @@ const AdminBookingsPage = () => {
           body: JSON.stringify({ password: adminPassword })
         });
 
-        // If the API call finishes earlier than our animation, don't stop the animation
-        // Just let it continue for user experience purposes
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
-        // Refresh bookings data once completed (do in background)
-        fetchBookings();
-
-        // Success message will be shown when animation completes
+        loadAllBookings();
 
       } catch (err) {
-        // Don't stop the animation if there's an API error
-        // Just log it and continue the animation for user experience
         console.error("API error during syncing:", err);
       }
 
@@ -359,8 +437,6 @@ const AdminBookingsPage = () => {
       console.error("Error in admin verification:", err);
       toast.error("Ошибка проверки учетных данных");
       setIsSyncing(false);
-
-      // Reset global sync flag on error
       isGlobalSyncInProgress = false;
     }
   };
@@ -369,13 +445,24 @@ const AdminBookingsPage = () => {
   const applyFilters = () => {
     let result = [...bookings];
 
+    // Apply user type filter first (staff/student)
+    if (selectedUserType !== "all") {
+      if (selectedUserType === "staff") {
+        result = result.filter(booking => booking.creator_role === 'staff');
+      } else if (selectedUserType === "student") {
+        result = result.filter(booking => booking.creator_role !== 'staff');
+      }
+    }
+
+
     // Apply search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(booking =>
           booking.room_name.toLowerCase().includes(searchLower) ||
           booking.full_name.toLowerCase().includes(searchLower) ||
-          booking.username.toLowerCase().includes(searchLower)
+          booking.username.toLowerCase().includes(searchLower) ||
+          (booking.purpose && booking.purpose.toLowerCase().includes(searchLower))
       );
     }
 
@@ -401,6 +488,42 @@ const AdminBookingsPage = () => {
       });
     }
 
+    // Apply tab filter
+    switch (activeTab) {
+      case 'pending':
+        result = result.filter(b => b.status === 'pending');
+        break;
+      case 'active':
+        result = result.filter(b => {
+          const now = new Date();
+          const start = parseISO(b.from_date);
+          const end = parseISO(b.until_date);
+          return (b.status === 'approved' || b.status === 'confirmed' || b.status === 'key_issued') &&
+              now >= start && now <= end;
+        });
+        break;
+      case 'upcoming':
+        result = result.filter(b => {
+          const now = new Date();
+          const start = parseISO(b.from_date);
+          return (b.status === 'approved' || b.status === 'confirmed') && now < start;
+        });
+        break;
+      case 'completed':
+        result = result.filter(b => {
+          const now = new Date();
+          const end = parseISO(b.until_date);
+          return b.status === 'completed' || (b.status === 'approved' && now > end);
+        });
+        break;
+      case 'staff':
+        result = result.filter(b => b.is_staff_booking === true || b.creator_role === 'staff');
+        break;
+      case 'student':
+        result = result.filter(b => b.is_staff_booking !== true && b.creator_role !== 'staff');
+        break;
+    }
+
     setFilteredBookings(result);
     setCurrentPage(1); // Reset to first page when filters change
   };
@@ -414,7 +537,8 @@ const AdminBookingsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`/api/admin/booking/${selectedBooking}/approve`, {
+      // Fixed endpoint: bookings -> booking (singular)
+      const response = await fetch(`http://localhost:5321/api/admin/booking/${selectedBooking}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -426,7 +550,6 @@ const AdminBookingsPage = () => {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      // Update local state to reflect the change
       setBookings(prevBookings =>
           prevBookings.map(booking =>
               booking.id === selectedBooking
@@ -445,7 +568,7 @@ const AdminBookingsPage = () => {
     }
   };
 
-  // Handle cancel booking
+// Handle cancel booking - FIXED ENDPOINT
   const handleCancelBooking = async () => {
     if (selectedBooking === null) return;
 
@@ -454,7 +577,8 @@ const AdminBookingsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`/api/admin/booking/${selectedBooking}/reject`, {
+      // Fixed endpoint: bookings -> booking (singular)
+      const response = await fetch(`http://localhost:5321/api/admin/booking/${selectedBooking}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -466,7 +590,6 @@ const AdminBookingsPage = () => {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      // Update local state to reflect the change
       setBookings(prevBookings =>
           prevBookings.map(booking =>
               booking.id === selectedBooking
@@ -487,11 +610,21 @@ const AdminBookingsPage = () => {
 
   // Format dates for display
   const formatDate = (dateString: string) => {
-    return format(parseISO(dateString), 'dd.MM.yyyy');
+    try {
+      return format(parseISO(dateString), 'dd.MM.yyyy');
+    } catch (e) {
+      console.error("Date formatting error:", e);
+      return "Invalid date";
+    }
   };
 
   const formatTime = (dateString: string) => {
-    return format(parseISO(dateString), 'HH:mm');
+    try {
+      return format(parseISO(dateString), 'HH:mm');
+    } catch (e) {
+      console.error("Time formatting error:", e);
+      return "Invalid time";
+    }
   };
 
   // Handle showing booking details
@@ -514,6 +647,7 @@ const AdminBookingsPage = () => {
 
     switch (status) {
       case 'approved':
+      case 'confirmed':
         color = 'bg-green-100 text-green-800';
         text = 'Подтверждено';
         break;
@@ -528,6 +662,14 @@ const AdminBookingsPage = () => {
       case 'completed':
         color = 'bg-blue-100 text-blue-800';
         text = 'Завершено';
+        break;
+      case 'key_requested':
+        color = 'bg-amber-100 text-amber-800';
+        text = 'Ключ запрошен';
+        break;
+      case 'key_issued':
+        color = 'bg-purple-100 text-purple-800';
+        text = 'Ключ выдан';
         break;
       default:
         color = 'bg-gray-100 text-gray-800';
@@ -550,20 +692,25 @@ const AdminBookingsPage = () => {
     const bookingStart = parseISO(booking.from_date);
     const bookingEnd = parseISO(booking.until_date);
 
-    const isActive = booking.status === 'approved' &&
+    const isActive = (booking.status === 'approved' || booking.status === 'confirmed' || booking.status === 'key_issued') &&
         now >= bookingStart &&
         now <= bookingEnd;
 
     const isPending = booking.status === 'pending';
 
+    // Fix the logic for determining if it's a staff booking
+    const isStaff = booking.creator_role === 'staff';
+
     return (
         <div key={booking.id} className="border rounded-lg p-4 hover:bg-accent/20 transition-colors">
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div className="space-y-2 flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-medium text-lg">{booking.room_name}</h3>
                 <StatusBadge status={booking.status} />
                 {isActive && <Badge className="bg-blue-100 text-blue-800">Активно</Badge>}
+                {isStaff && <Badge className="bg-indigo-100 text-indigo-800">Сотрудник</Badge>}
+                {!isStaff && <Badge className="bg-teal-100 text-teal-800">Студент</Badge>}
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
@@ -577,6 +724,19 @@ const AdminBookingsPage = () => {
                 <User className="h-4 w-4" />
                 <span>{booking.full_name} ({booking.username})</span>
               </div>
+              {booking.purpose && (
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium">Цель:</span> {booking.purpose}
+                  </div>
+              )}
+              {booking.staff_names && booking.staff_names.length > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium">Участники:</span> {booking.staff_names.length} человек
+                    <Button variant="ghost" size="sm" className="ml-1 h-6 p-0 text-primary" onClick={() => handleViewDetails(booking)}>
+                      Подробнее
+                    </Button>
+                  </div>
+              )}
               {booking.status === 'approved' && booking.access_code && (
                   <div className="text-sm font-medium text-green-600">
                     Код доступа: {booking.access_code}
@@ -647,13 +807,13 @@ const AdminBookingsPage = () => {
     const now = new Date();
     const start = parseISO(b.from_date);
     const end = parseISO(b.until_date);
-    return b.status === 'approved' && now >= start && now <= end;
+    return (b.status === 'approved' || b.status === 'confirmed' || b.status === 'key_issued') && now >= start && now <= end;
   });
 
   const getUpcomingBookings = () => filteredBookings.filter(b => {
     const now = new Date();
     const start = parseISO(b.from_date);
-    return b.status === 'approved' && now < start;
+    return (b.status === 'approved' || b.status === 'confirmed') && now < start;
   });
 
   const getCompletedBookings = () => filteredBookings.filter(b => {
@@ -661,6 +821,10 @@ const AdminBookingsPage = () => {
     const end = parseISO(b.until_date);
     return b.status === 'completed' || (b.status === 'approved' && now > end);
   });
+
+  // Get counts of different booking types
+  const getStaffBookingsCount = () => bookings.filter(b => b.creator_role === 'staff').length;
+  const getStudentBookingsCount = () => bookings.filter(b => b.creator_role !== 'staff').length;
 
   return (
       <PageLayout role="admin">
@@ -674,7 +838,7 @@ const AdminBookingsPage = () => {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" onClick={fetchBookings} disabled={isLoading}>
+              <Button variant="outline" onClick={loadAllBookings} disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Обновить
               </Button>
@@ -705,12 +869,25 @@ const AdminBookingsPage = () => {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
-                    placeholder="Поиск по аудитории, имени, ID..."
+                    placeholder="Поиск по аудитории, имени, цели..."
                     className="pl-8"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              <Select
+                  value={selectedUserType}
+                  onValueChange={setSelectedUserType}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Тип пользователя" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все пользователи</SelectItem>
+                  <SelectItem value="staff">Сотрудники</SelectItem>
+                  <SelectItem value="student">Студенты</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Expanded filters */}
@@ -732,6 +909,8 @@ const AdminBookingsPage = () => {
                           <SelectItem value="approved">Подтверждено</SelectItem>
                           <SelectItem value="rejected">Отклонено</SelectItem>
                           <SelectItem value="completed">Завершено</SelectItem>
+                          <SelectItem value="key_requested">Ключ запрошен</SelectItem>
+                          <SelectItem value="key_issued">Ключ выдан</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -761,6 +940,7 @@ const AdminBookingsPage = () => {
                     <Button variant="outline" onClick={() => {
                       setSearchTerm("");
                       setSelectedStatus("all");
+                      setSelectedUserType("all");
                       setDateFilter({start: "", end: ""});
                     }}>
                       Сбросить
@@ -781,18 +961,26 @@ const AdminBookingsPage = () => {
           ) : error ? (
               <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
                 <p className="text-destructive">{error}</p>
-                <Button variant="outline" className="mt-2" onClick={fetchBookings}>
+                <Button variant="outline" className="mt-2" onClick={loadAllBookings}>
                   Повторить запрос
                 </Button>
               </div>
           ) : (
-              <Tabs defaultValue="all">
+              <Tabs defaultValue="all" onValueChange={setActiveTab}>
                 <TabsList className="mb-6">
                   <TabsTrigger value="all">Все ({filteredBookings.length})</TabsTrigger>
                   <TabsTrigger value="pending">Ожидание ({getPendingBookings().length})</TabsTrigger>
                   <TabsTrigger value="active">Активные ({getActiveBookings().length})</TabsTrigger>
                   <TabsTrigger value="upcoming">Предстоящие ({getUpcomingBookings().length})</TabsTrigger>
                   <TabsTrigger value="completed">Завершенные ({getCompletedBookings().length})</TabsTrigger>
+                  <TabsTrigger value="staff" className="flex items-center gap-1">
+                    <Briefcase className="h-4 w-4" />
+                    Сотрудники ({getStaffBookingsCount()})
+                  </TabsTrigger>
+                  <TabsTrigger value="student" className="flex items-center gap-1">
+                    <UserCheck className="h-4 w-4" />
+                    Студенты ({getStudentBookingsCount()})
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="all" className="space-y-4">
@@ -1005,6 +1193,58 @@ const AdminBookingsPage = () => {
                     </CardContent>
                   </Card>
                 </TabsContent>
+
+                <TabsContent value="staff" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Briefcase className="h-5 w-5" />
+                        Бронирования сотрудников
+                      </CardTitle>
+                      <CardDescription>
+                        Просмотр всех бронирований, созданных сотрудниками
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {bookings.filter(b => b.creator_role === 'staff').length > 0 ? (
+                            bookings.filter(b => b.creator_role === 'staff')
+                                .slice(0, itemsPerPage).map(booking => renderBookingItem(booking))
+                        ) : (
+                            <div className="text-center py-10">
+                              <p className="text-muted-foreground">Нет бронирований от сотрудников</p>
+                            </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="student" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <UserCheck className="h-5 w-5" />
+                        Бронирования студентов
+                      </CardTitle>
+                      <CardDescription>
+                        Просмотр всех бронирований, созданных студентами
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {bookings.filter(b => b.creator_role !== 'staff').length > 0 ? (
+                            bookings.filter(b => b.creator_role !== 'staff')
+                                .slice(0, itemsPerPage).map(booking => renderBookingItem(booking))
+                        ) : (
+                            <div className="text-center py-10">
+                              <p className="text-muted-foreground">Нет бронирований от студентов</p>
+                            </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
               </Tabs>
           )}
         </div>
@@ -1108,6 +1348,11 @@ const AdminBookingsPage = () => {
                   </div>
 
                   <div>
+                    <p className="text-sm font-medium text-muted-foreground">Тип пользователя</p>
+                    <p>{detailBooking.creator_role === 'staff' ? 'Сотрудник' : 'Студент'}</p>
+                  </div>
+
+                  <div>
                     <p className="text-sm font-medium text-muted-foreground">Помещение</p>
                     <p className="font-medium">{detailBooking.room_name}</p>
                   </div>
@@ -1135,14 +1380,34 @@ const AdminBookingsPage = () => {
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Пользователь</p>
+                    <p className="text-sm font-medium text-muted-foreground">Создатель</p>
                     <p>{detailBooking.full_name}</p>
                   </div>
 
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">ID пользователя</p>
-                    <p>{detailBooking.username}</p>
-                  </div>
+                  {detailBooking.purpose && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Цель бронирования</p>
+                        <p>{detailBooking.purpose}</p>
+                      </div>
+                  )}
+
+                  {detailBooking.attendees_count && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Количество участников</p>
+                        <p>{detailBooking.attendees_count}</p>
+                      </div>
+                  )}
+
+                  {detailBooking.staff_names && detailBooking.staff_names.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Участники</p>
+                        <ul className="text-sm list-disc pl-5">
+                          {detailBooking.staff_names.map((name, index) => (
+                              <li key={index}>{name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                  )}
 
                   {detailBooking.access_code && (
                       <div>

@@ -229,7 +229,9 @@ async function fetchWithAuth<T>(
     const publicEndpoints = [
       '/api/auth/login',
       '/api/auth/check-student-id',
-      '/api/auth/check-staff-id'
+      '/api/auth/check-staff-id',
+      '/api/auth/complete-registration', // Add this line
+      '/api/auth/staff/complete-registration'
     ];
 
     const isPublicEndpoint = publicEndpoints.some(pe => endpoint.includes(pe));

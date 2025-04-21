@@ -34,6 +34,8 @@ import SetPasswordPage from "./pages/employee/SetPasswordPage";
 import ApiTest from "@/components/ApiTest.tsx";
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
+import StaffRegisterPage from "@/pages/StaffRegisterPage.tsx";
+import ChangePasswordPage from "@/pages/ChangePasswordPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +82,8 @@ const App = () => (
                   <Route path="/employee/manage" element={<EmployeeManagementPage />} />
                   <Route path="/employee/register" element={<EmployeeRegisterPage />} />
                   <Route path="/employee/set-password" element={<SetPasswordPage />} />
+                  <Route path="/staff-register" element={<StaffRegisterPage/>}/>
+                  <Route path="change-password" element={<ChangePasswordPage />} />
 
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="/swagger" element={<SwaggerUI url="/api/swagger.json" />} />
