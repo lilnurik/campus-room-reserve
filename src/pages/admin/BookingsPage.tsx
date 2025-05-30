@@ -183,7 +183,7 @@ const AdminBookingsPage = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5321/api/admin/bookings', {
+      const response = await fetch('https://room.turin.uz/api/admin/bookings', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -232,7 +232,7 @@ const AdminBookingsPage = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5321/api/bookings/get-bulk', {
+      const response = await fetch('https://room.turin.uz/api/bookings/get-bulk', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -298,7 +298,7 @@ const AdminBookingsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch('http://localhost:5321/api/admin/verify-password', {
+      const response = await fetch('https://room.turin.uz/api/admin/verify-password', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -422,7 +422,7 @@ const AdminBookingsPage = () => {
 
       try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch('http://localhost:5321/api/admin/sync-class-schedules', {
+        const response = await fetch('https://room.turin.uz/api/admin/sync-class-schedules', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -546,7 +546,7 @@ const AdminBookingsPage = () => {
       const token = localStorage.getItem('authToken');
 
       // Fixed endpoint: bookings -> booking (singular)
-      const response = await fetch(`http://localhost:5321/api/admin/booking/${selectedBooking}/approve`, {
+      const response = await fetch(`https://room.turin.uz/api/admin/booking/${selectedBooking}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -586,7 +586,7 @@ const AdminBookingsPage = () => {
       const token = localStorage.getItem('authToken');
 
       // Fixed endpoint: bookings -> booking (singular)
-      const response = await fetch(`http://localhost:5321/api/admin/booking/${selectedBooking}/reject`, {
+      const response = await fetch(`https://room.turin.uz/api/admin/booking/${selectedBooking}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
