@@ -123,7 +123,8 @@ export interface StaffMember {
 }
 
 // Use relative URLs for API endpoints when working with the proxy
-const API_BASE_URL = "http://127.0.0.1:5321";
+// const API_BASE_URL = "http://127.0.0.1:5321";
+const API_BASE_URL = "https://room.turin.uz";
 
 // Enhanced helper function for handling API responses with detailed error logging
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
