@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Search, Info, Loader2, Users, ClockIcon } from "lucide-react";
+import { Search, Info, Loader2, Users, ClockIcon, AlertTriangle, WrenchIcon } from "lucide-react";
 import {
     Select,
     SelectTrigger,
@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import PageLayout from "@/components/PageLayout";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "@/context/LanguageContext";
@@ -87,6 +88,10 @@ const BookingPage = () => {
 
     // Tab filtering
     const [activeTab, setActiveTab] = useState("all");
+
+    // Current date/time and user
+    const [currentDateTime, setCurrentDateTime] = useState("2025-05-02 04:53:12");
+    const [currentUser, setCurrentUser] = useState("lilnurik");
 
     // Load rooms and staff on initial render
     useEffect(() => {
@@ -200,7 +205,13 @@ const BookingPage = () => {
     };
 
     // Filter rooms based on search and tab
+    // Modified to filter out rooms with status "unavailable"
     const filteredRooms = rooms.filter((room) => {
+        // First, filter out rooms with status "unavailable"
+        if (room.status === "unavailable") {
+            return false;
+        }
+
         const matchesSearch =
             room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             room.category.toLowerCase().includes(searchTerm.toLowerCase());
@@ -369,8 +380,8 @@ const BookingPage = () => {
                                     >
                                         {staff.full_name}
                                         <span className="block text-xs text-muted-foreground">
-                      {staff.internal_id} • {staff.department}
-                    </span>
+                                          {staff.internal_id} • {staff.department}
+                                        </span>
                                     </Label>
                                 </div>
                             ))}
@@ -385,12 +396,30 @@ const BookingPage = () => {
         );
     };
 
+    // Custom status badge for rooms
+    const RoomStatusBadge = ({ status }: { status: string }) => {
+        if (status === "maintenance") {
+            return (
+                <Badge className="bg-orange-100 text-orange-800 ml-2 text-xs">
+                    <WrenchIcon className="h-3 w-3 mr-1" />
+                    На обслуживании
+                </Badge>
+            );
+        }
+        return null;
+    };
+
     return (
         <PageLayout role="employee">
             <div className="space-y-6">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Бронирование помещений</h1>
                     <p className="text-muted-foreground">Выберите дату, время и аудиторию</p>
+                </div>
+
+                {/* Current user and date info */}
+                <div className="text-sm text-muted-foreground text-right">
+                    Пользователь: {currentUser} | {currentDateTime}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -452,35 +481,55 @@ const BookingPage = () => {
                                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                                         </div>
                                     ) : filteredRooms.length > 0 ? (
-                                        filteredRooms.map((room) => (
-                                            <div
-                                                key={room.id}
-                                                className={`p-3 mb-2 border rounded-md cursor-pointer ${
-                                                    selectedRoom === room.id.toString()
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "hover:bg-accent"
-                                                }`}
-                                                onClick={() => setSelectedRoom(room.id.toString())}
-                                            >
-                                                <div className="font-medium">{room.name}</div>
-                                                <div className="text-sm flex justify-between">
-                          <span>
-                            {room.category === "lecture"
-                                ? "Лекционная"
-                                : room.category === "seminar"
-                                    ? "Семинарская"
-                                    : "Прочее"}
-                          </span>
-                                                    <span className="flex items-center">
-                            <Users className="h-3 w-3 mr-1" />
-                                                        {room.capacity}
-                          </span>
+                                        filteredRooms.map((room) => {
+                                            const isOnMaintenance = room.status === "maintenance";
+                                            return (
+                                                <div
+                                                    key={room.id}
+                                                    className={`p-3 mb-2 border rounded-md ${
+                                                        isOnMaintenance ?
+                                                            "bg-orange-50 cursor-not-allowed opacity-75" :
+                                                            "cursor-pointer " + (
+                                                                selectedRoom === room.id.toString()
+                                                                    ? "bg-primary text-primary-foreground"
+                                                                    : "hover:bg-accent"
+                                                            )
+                                                    }`}
+                                                    onClick={() => {
+                                                        if (!isOnMaintenance) {
+                                                            setSelectedRoom(room.id.toString());
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="font-medium flex items-center">
+                                                        {room.name}
+                                                        <RoomStatusBadge status={room.status} />
+                                                    </div>
+                                                    <div className="text-sm flex justify-between">
+                                                        <span>
+                                                            {room.category === "lecture"
+                                                                ? "Лекционная"
+                                                                : room.category === "seminar"
+                                                                    ? "Семинарская"
+                                                                    : "Прочее"}
+                                                        </span>
+                                                        <span className="flex items-center">
+                                                            <Users className="h-3 w-3 mr-1" />
+                                                            {room.capacity}
+                                                        </span>
+                                                    </div>
+                                                    {isOnMaintenance && (
+                                                        <div className="text-xs text-orange-700 mt-1 flex items-center">
+                                                            <AlertTriangle className="h-3 w-3 mr-1" />
+                                                            Аудитория на обслуживании и недоступна для бронирования
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     ) : (
                                         <div className="text-center text-sm text-muted-foreground py-6">
-                                            Нет аудиторий
+                                            Нет доступных аудиторий
                                         </div>
                                     )}
                                 </ScrollArea>

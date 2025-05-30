@@ -52,7 +52,7 @@ const EmployeeDashboard = () => {
                                     <div className="p-3 bg-primary/10 rounded-full">
                                         <Calendar className="h-6 w-6 text-primary" />
                                     </div>
-                                    <h3 className="font-medium">{t('dashboard.actions.bookRoom')}</h3>
+                                    <h3 className="font-medium">{t('dashboard.bookRoom')}</h3>
                                     <p className="text-sm text-muted-foreground">Бронирование аудиторий и помещений</p>
                                     <Button className="w-full mt-2" variant="default" size="sm" asChild>
                                         <a href="/employee/booking">{t('common.book')}</a>
@@ -67,10 +67,10 @@ const EmployeeDashboard = () => {
                                     <div className="p-3 bg-primary/10 rounded-full">
                                         <Clock className="h-6 w-6 text-primary" />
                                     </div>
-                                    <h3 className="font-medium">{t('dashboard.actions.viewHistory')}</h3>
+                                    <h3 className="font-medium">{t('dashboard.viewHistory')}</h3>
                                     <p className="text-sm text-muted-foreground">Просмотр истории бронирований</p>
                                     <Button className="w-full mt-2" variant="outline" size="sm" asChild>
-                                        <a href="/employee/history">{t('dashboard.actions.viewAll')}</a>
+                                        <a href="/employee/history">{t('dashboard.viewAll')}</a>
                                     </Button>
                                 </div>
                             </CardContent>

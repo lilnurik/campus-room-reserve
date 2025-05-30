@@ -55,7 +55,7 @@ const LoginPage = () => {
           </CardHeader>
 
           <Tabs defaultValue={role} onValueChange={setRole} className="w-full">
-            <TabsList className="grid grid-cols-4 mx-auto w-[350px]">
+            <TabsList className="grid grid-cols-2 mx-auto w-[350px]">
               <TabsTrigger value="student" className="flex items-center gap-1">
                 <User className="w-4 h-4" />
                 {t('auth.studentRole')}
@@ -64,14 +64,14 @@ const LoginPage = () => {
                 <Briefcase className="w-4 h-4" />
                 {t('auth.staffRole')}
               </TabsTrigger>
-              <TabsTrigger value="security" className="flex items-center gap-1">
-                <KeyRound className="w-4 h-4" />
-                {t('auth.guardRole')}
-              </TabsTrigger>
-              <TabsTrigger value="admin" className="flex items-center gap-1">
-                <Shield className="w-4 h-4" />
-                {t('auth.adminRole')}
-              </TabsTrigger>
+              {/*<TabsTrigger value="security" className="flex items-center gap-1">*/}
+              {/*  <KeyRound className="w-4 h-4" />*/}
+              {/*  {t('auth.guardRole')}*/}
+              {/*</TabsTrigger>*/}
+              {/*<TabsTrigger value="admin" className="flex items-center gap-1">*/}
+              {/*  <Shield className="w-4 h-4" />*/}
+              {/*  {t('auth.adminRole')}*/}
+              {/*</TabsTrigger>*/}
             </TabsList>
 
             <TabsContent value="student">

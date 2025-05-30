@@ -187,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         navigate('/student/dashboard');
         break;
       case 'security':
-        navigate('/security/dashboard');
+        navigate('/guard/dashboard');
         break;
       case 'admin':
         navigate('/admin/dashboard');

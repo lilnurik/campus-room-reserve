@@ -13,6 +13,7 @@ interface Translations {
 export const translations: Translations = {
   ru: {
     common: {
+      book: 'Забронировать',
       home: 'Главная',
       profile: 'Профиль',
       booking: 'Бронирование',
@@ -151,6 +152,8 @@ export const translations: Translations = {
       updatePasswordSuccess: "Пароль успешно обновлен",
     },
     dashboard: {
+      viewAll: "Просмотреть все",
+      welcomeMessage: "Добро пожаловать",
       staffSubtitle: "Управление бронированием помещений и сотрудниками отдела",
       teamMembers: "Сотрудники отдела",
       manageTeam: "Управление командой",
@@ -169,6 +172,7 @@ export const translations: Translations = {
       noUpcomingBookings: 'У вас нет предстоящих бронирований',
       noPastBookings: 'У вас нет прошлых бронирований',
       popularRooms: 'Популярные комнаты',
+      viewHistory: 'Просмотреть историю',
       availableNow: 'Доступные сейчас',
       available: 'Доступно',
       maintenance: 'На обслуживании',
@@ -363,6 +367,7 @@ export const translations: Translations = {
       allRooms: "Все аудитории",
       lectureRooms: "Лекционные",
       labRooms: "Лабораторные",
+      selectRoomToSeeSlots:"Выберите аудиторию, чтобы увидеть доступные временные слоты",
       computerRooms: "Компьютерные",
       details: "Детали",
       select: "Выбрать",
@@ -421,6 +426,9 @@ export const translations: Translations = {
       invalidTimeSlot: "Некорректный выбор временного интервала",
       bulkBookingSuccess: "Групповое бронирование успешно создано",
       bulkBookingError: "Ошибка при создании группового бронирования",
+    },
+    employee: {
+      manageEmployees: "Управление сотрудниками",
     },
     bookingDetails: {
       title: "Детали бронирования",
@@ -485,6 +493,13 @@ export const translations: Translations = {
         subtitle: "Удобное бронирование комнат, аудиторий и спортивных комплексов для учебы и мероприятий",
         bookButton: "Забронировать помещение",
         learnMore: "Подробнее о системе"
+      },
+      employee:{
+        title: "Система бронирования для сотрудников",
+        subtitle: "Управление бронированием помещений и сотрудниками вашего отдела",
+        loginButton: "Войти в систему",
+        registerButton: "Зарегистрироваться",
+        manageEmployees: "Управление сотрудниками",
       },
       stats: {
         rooms: "Аудиторий",
@@ -551,6 +566,7 @@ export const translations: Translations = {
   },
   en: {
     common: {
+      book: 'Book',
       home: 'Home',
       profile: 'Profile',
       booking: 'Booking',
@@ -571,6 +587,13 @@ export const translations: Translations = {
       close: "Close",
       actions: "Actions",
       loadError: "Failed to load data",
+    },
+    employee:{
+      title: "Система бронирования для сотрудников",
+      subtitle: "Управление бронированием помещений и сотрудниками вашего отдела",
+      loginButton: "Войти в систему",
+      registerButton: "Зарегистрироваться",
+      manageEmployees: "Manage Employees",
     },
 
     // English translations
@@ -669,6 +692,8 @@ export const translations: Translations = {
       tempPassword: "Temporary Password",
     },
     dashboard: {
+      viewAll: "View All",
+      welcomeMessage: "Welcome",
       title: 'Your Dashboard',
       subtitle: 'Manage your bookings and create new ones',
       bookRoom: 'Book a Room',
@@ -685,6 +710,7 @@ export const translations: Translations = {
       availableNow: 'Available Now',
       available: 'Available',
       maintenance: 'Maintenance',
+      viewHistory: 'View History',
       allRooms: "All Rooms",
       searchRooms: "Search rooms...",
       filters: "Filters",
@@ -912,6 +938,7 @@ export const translations: Translations = {
       bookingSuccess: "Booking successfully created",
       bookingFailed: "Failed to create booking",
       errorLoadingRooms: "Error loading rooms",
+      selectRoomToSeeSlots:"Select a room to see available time slots",
       errorLoadingAvailability: "Error loading schedule",
       hasScheduledEvents: "Has scheduled events",
       pendingApproval: "Waiting for administrator approval",
@@ -1094,6 +1121,7 @@ export const translations: Translations = {
   },
   uz: {
     common: {
+      book: 'Bron qilish',
       home: 'Bosh sahifa',
       profile: 'Profil',
       booking: 'Bron qilish',
@@ -1115,6 +1143,13 @@ export const translations: Translations = {
       close: "Yopish",
       actions: "Amallar",
       loadError: "Ma'lumotlarni yuklab bo'lmadi",
+    },
+    employee:{
+      title: "Система бронирования для сотрудников",
+      subtitle: "Управление бронированием помещений и сотрудниками вашего отдела",
+      loginButton: "Войти в систему",
+      registerButton: "Зарегистрироваться",
+      manageEmployees: "Xodimlarni boshqarish",
     },
     profile: {
       title: "Talaba profili",
@@ -1233,6 +1268,8 @@ export const translations: Translations = {
       tempPassword: "Vaqtinchalik parol",
     },
     dashboard: {
+      viewAll: "Barchasini ko'rish",
+      welcomeMessage: "Xush kelibsiz",
       title: 'Shaxsiy kabinet',
       subtitle: 'Bronlaringizni boshqaring va yangilarini yarating',
       bookRoom: 'Xonani bron qilish',
@@ -1247,6 +1284,7 @@ export const translations: Translations = {
       noPastBookings: 'Sizda o\'tgan bronlar yo\'q',
       popularRooms: 'Mashhur xonalar',
       availableNow: 'Hozir mavjud',
+      viewHistory: 'Tarixni ko\'rish',
       available: 'Mavjud',
       maintenance: 'Ta\'mirlashda',
       allRooms: 'Barcha xonalar',
@@ -1439,7 +1477,7 @@ export const translations: Translations = {
       startTime: "Boshlanish vaqti",
       endTime: "Tugash vaqti",
       selectTime: "Vaqt tanlang",
-
+      selectRoomToSeeSlots:"Xona tanlang va mavjud vaqt oralig'ini ko'ring",
       purposePlaceholder: "Bronlash maqsadini kiriting",
       selectStaff: "Xodimlarni tanlang",
       selectStaffDesc: "Bu bronlashga qo'shish uchun xodimlarni tanlang",

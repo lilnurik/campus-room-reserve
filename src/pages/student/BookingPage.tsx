@@ -49,6 +49,10 @@ const BookingPage = () => {
   const [searchParams] = useSearchParams();
   const roomIdFromUrl = searchParams.get('roomId');
 
+  // Current user and datetime - set with the requested values
+  const [currentDateTime] = useState("2025-05-02 05:09:43");
+  const [currentUser] = useState("lilnurik");
+
   // State variables
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -146,6 +150,9 @@ const BookingPage = () => {
       );
     }
 
+    // Filter out unavailable and maintenance rooms
+    filtered = filtered.filter(room => room.status !== "unavailable");
+
     setFilteredRooms(filtered);
     setCurrentPage(1); // Reset to first page when filters change
   }, [rooms, activeCategory, searchQuery]);
@@ -182,6 +189,12 @@ const BookingPage = () => {
 
   // Function to select a room and load its availability
   const handleRoomSelect = (room: Room) => {
+    // Skip if room is under maintenance
+    if (room.status === "maintenance") {
+      toast.error("Аудитория на обслуживании и недоступна для бронирования");
+      return;
+    }
+
     setSelectedRoom(room);
     if (date) {
       loadTimeSlots(room.id, formatDate(date));
@@ -278,6 +291,18 @@ const BookingPage = () => {
     setCurrentPage(pageNumber);
   };
 
+  // Custom status badge for rooms
+  const RoomStatusBadge = ({ status }: { status: string }) => {
+    if (status === "maintenance") {
+      return (
+          <Badge className="bg-orange-100 text-orange-800 ml-2 text-xs">
+            На обслуживании
+          </Badge>
+      );
+    }
+    return null;
+  };
+
   return (
       <PageLayout role="student">
         <div className="space-y-6 pb-10">
@@ -287,6 +312,12 @@ const BookingPage = () => {
             <p className="text-sm sm:text-base text-muted-foreground">
               {t("booking.subtitle") || "Выберите дату, время и аудиторию для бронирования"}
             </p>
+          </div>
+
+          {/* Current user and datetime display */}
+          <div className="text-sm text-muted-foreground text-right px-2 sm:px-0">
+            Current Date and Time (UTC): {currentDateTime} |
+            Current User: {currentUser}
           </div>
 
           {/* Time Slot Selection - Now at the top and always visible */}
@@ -300,7 +331,7 @@ const BookingPage = () => {
                 {date
                     ? `${t("booking.availableTimesFor") || "Доступное время на"} ${format(date, 'PP', { locale: ru })}`
                     : t("booking.selectDateBelow") || "Выберите дату ниже, чтобы увидеть доступные слоты"}
-                {!selectedRoom && <span className="block text-amber-500 mt-1">{t("booking.selectRoomMessage") || "Выберите аудиторию ниже, чтобы увидеть доступные слоты"}</span>}
+                {!selectedRoom && <span className="block text-amber-500 mt-1">{t("booking.selectRoom") || "Выберите аудиторию ниже, чтобы увидеть доступные слоты"}</span>}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -447,52 +478,71 @@ const BookingPage = () => {
                   ) : currentRooms.length > 0 ? (
                       <>
                         <div className="grid grid-cols-1 gap-3">
-                          {currentRooms.map(room => (
-                              <Card
-                                  key={room.id}
-                                  className={`cursor-pointer transition-colors hover:bg-accent ${selectedRoom?.id === room.id ? 'border-primary' : ''}`}
-                                  onClick={() => handleRoomSelect(room)}
-                              >
-                                <CardContent className="p-3 sm:p-4">
-                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                                    <div className="flex-1">
-                                      <h3 className="font-medium text-sm sm:text-base">{room.name}</h3>
-                                      <p className="text-xs sm:text-sm text-muted-foreground">
-                                        {room.category}, {t("rooms.capacity") || "Вместимость"}: {room.capacity}
-                                      </p>
-                                      {room.building && (
-                                          <p className="text-xs sm:text-sm text-muted-foreground">{room.building}</p>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-row sm:flex-col md:flex-row gap-2 justify-end">
-                                      <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-8 text-xs px-2 sm:px-3"
-                                      >
-                                        <Info className="h-3 w-3 mr-1" />
-                                        {t("booking.details") || "Детали"}
-                                      </Button>
-                                      <Button
-                                          size="sm"
-                                          className="h-8 text-xs px-2 sm:px-3"
-                                          variant={selectedRoom?.id === room.id ? "default" : "outline"}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRoomSelect(room);
-                                          }}
-                                      >
-                                        {selectedRoom?.id === room.id ? (
-                                            <><CheckCircle className="h-3 w-3 mr-1" /> {t("booking.selected") || "Выбрано"}</>
-                                        ) : (
-                                            <><CalendarPlus className="h-3 w-3 mr-1" /> {t("booking.select") || "Выбрать"}</>
+                          {currentRooms.map(room => {
+                            const isMaintenanceRoom = room.status === "maintenance";
+                            return (
+                                <Card
+                                    key={room.id}
+                                    className={`transition-colors ${
+                                        isMaintenanceRoom
+                                            ? "border-orange-300 bg-orange-50 opacity-75"
+                                            : `cursor-pointer hover:bg-accent ${selectedRoom?.id === room.id ? 'border-primary' : ''}`
+                                    }`}
+                                    onClick={() => !isMaintenanceRoom && handleRoomSelect(room)}
+                                >
+                                  <CardContent className="p-3 sm:p-4">
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                                      <div className="flex-1">
+                                        <div className="flex items-center">
+                                          <h3 className="font-medium text-sm sm:text-base">{room.name}</h3>
+                                          <RoomStatusBadge status={room.status} />
+                                        </div>
+                                        <p className="text-xs sm:text-sm text-muted-foreground">
+                                          {room.category}, {t("rooms.capacity") || "Вместимость"}: {room.capacity}
+                                        </p>
+                                        {room.building && (
+                                            <p className="text-xs sm:text-sm text-muted-foreground">{room.building}</p>
                                         )}
-                                      </Button>
+                                        {isMaintenanceRoom && (
+                                            <p className="text-xs text-orange-700 mt-1">
+                                              Аудитория на обслуживании и недоступна для бронирования
+                                            </p>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-row sm:flex-col md:flex-row gap-2 justify-end">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 text-xs px-2 sm:px-3"
+                                            disabled={isMaintenanceRoom}
+                                        >
+                                          <Info className="h-3 w-3 mr-1" />
+                                          {t("booking.details") || "Детали"}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            className="h-8 text-xs px-2 sm:px-3"
+                                            variant={selectedRoom?.id === room.id ? "default" : "outline"}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (!isMaintenanceRoom) {
+                                                handleRoomSelect(room);
+                                              }
+                                            }}
+                                            disabled={isMaintenanceRoom}
+                                        >
+                                          {selectedRoom?.id === room.id ? (
+                                              <><CheckCircle className="h-3 w-3 mr-1" /> {t("booking.selected") || "Выбрано"}</>
+                                          ) : (
+                                              <><CalendarPlus className="h-3 w-3 mr-1" /> {t("booking.select") || "Выбрать"}</>
+                                          )}
+                                        </Button>
+                                      </div>
                                     </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                          ))}
+                                  </CardContent>
+                                </Card>
+                            );
+                          })}
                         </div>
 
                         {/* Pagination controls - Simplified for mobile */}

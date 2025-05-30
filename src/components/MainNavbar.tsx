@@ -23,7 +23,7 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [open, setOpen] = useState(false);
   const [currentDateTime, setCurrentDateTime] = useState("2025-04-11 11:40:03");
-  const [currentUser] = useState("lilnurik");
+  const [currentUser] = useState("");
 
   // Update time periodically
   useEffect(() => {
@@ -101,15 +101,13 @@ const MainNavbar = ({ role = "student" }: { role?: "student" | "guard" | "admin"
               <span className="font-medium">•</span>
               <span>{t('landingPage.footer.user')}: {currentUser}</span>
               <span className="font-medium">•</span>
-              <span>{t('landingPage.footer.currentTime')} (UTC): {currentDateTime}</span>
-              <span className="font-medium">•</span>
+
               <AlertTriangle size={16} />
               <span>{t('landingPage.testMode.warning')}</span>
               <span className="font-medium">•</span>
               <span>{t('landingPage.footer.user')}: {currentUser}</span>
               <span className="font-medium">•</span>
-              <span>{t('landingPage.footer.currentTime')} (UTC): {currentDateTime}</span>
-              <span className="font-medium">•</span>
+
             </div>
           </div>
           <div className="absolute top-0 right-0 bottom-0 w-12 bg-gradient-to-l from-red-500 to-transparent"></div>

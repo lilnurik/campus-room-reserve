@@ -63,7 +63,7 @@ const AdminBookingsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Current user and datetime - updated with correct values
-  const [currentDateTime, setCurrentDateTime] = useState("2025-04-21 12:09:47");
+  const [currentDateTime, setCurrentDateTime] = useState("2025-05-02 06:41:26");
   const [currentUser, setCurrentUser] = useState("lilnurik");
 
   // Status filter
@@ -115,7 +115,7 @@ const AdminBookingsPage = () => {
   // Update the current date/time periodically
   useEffect(() => {
     // Start with correct time
-    setCurrentDateTime("2025-04-21 12:09:47");
+    setCurrentDateTime("2025-05-02 06:41:26");
 
     // Update time every minute
     const timeInterval = setInterval(() => {
@@ -208,10 +208,13 @@ const AdminBookingsPage = () => {
         created_at: booking.created_at || new Date().toISOString()
       }));
 
-      setStudentBookings(processedBookings.filter(b => b.user_role !== 'staff' && !b.is_staff_booking));
-      const staffBooks = processedBookings.filter(b => b.user_role === 'staff' || b.is_staff_booking);
+      // Filter out admin bookings
+      const nonAdminBookings = processedBookings.filter(booking => booking.creator_role !== 'admin');
+
+      setStudentBookings(nonAdminBookings.filter(b => b.user_role !== 'staff' && !b.is_staff_booking));
+      const staffBooks = nonAdminBookings.filter(b => b.user_role === 'staff' || b.is_staff_booking);
       setStaffBookings(prev => [...prev, ...staffBooks]);
-      updateAllBookings([...processedBookings, ...staffBookings]);
+      updateAllBookings([...nonAdminBookings, ...staffBookings.filter(b => b.creator_role !== 'admin')]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch bookings");
       console.error("Error fetching regular bookings:", err);
@@ -265,16 +268,19 @@ const AdminBookingsPage = () => {
         status: booking.status || 'pending'
       }));
 
-      console.log("Processed bulk bookings:", processedBookings);
+      // Filter out admin bookings
+      const nonAdminBookings = processedBookings.filter(booking => booking.creator_role !== 'admin');
+
+      console.log("Processed bulk bookings:", nonAdminBookings);
       setStaffBookings(prevStaffBookings => [
         ...prevStaffBookings,
-        ...processedBookings.filter(b => b.is_staff_booking === true || b.creator_role === 'staff')
+        ...nonAdminBookings.filter(b => b.is_staff_booking === true || b.creator_role === 'staff')
       ]);
       setStudentBookings(prevStudentBookings => [
         ...prevStudentBookings,
-        ...processedBookings.filter(b => b.is_staff_booking !== true && b.creator_role === 'student')
+        ...nonAdminBookings.filter(b => b.is_staff_booking !== true && b.creator_role === 'student')
       ]);
-      updateAllBookings([...studentBookings, ...processedBookings]);
+      updateAllBookings([...studentBookings, ...nonAdminBookings]);
     } catch (err) {
       console.error("Error fetching bulk bookings:", err);
     }
@@ -282,7 +288,9 @@ const AdminBookingsPage = () => {
 
   // Update all bookings
   const updateAllBookings = (bookingsArray: Booking[]) => {
-    setBookings(bookingsArray);
+    // Ensure we're not showing admin bookings
+    const nonAdminBookings = bookingsArray.filter(booking => booking.creator_role !== 'admin');
+    setBookings(nonAdminBookings);
   };
 
   // Verify admin password against the API
@@ -443,7 +451,8 @@ const AdminBookingsPage = () => {
 
   // Apply filters to bookings
   const applyFilters = () => {
-    let result = [...bookings];
+    // First filter out any admin bookings
+    let result = bookings.filter(booking => booking.creator_role !== 'admin');
 
     // Apply user type filter first (staff/student)
     if (selectedUserType !== "all") {
@@ -453,7 +462,6 @@ const AdminBookingsPage = () => {
         result = result.filter(booking => booking.creator_role !== 'staff');
       }
     }
-
 
     // Apply search filter
     if (searchTerm) {
@@ -517,10 +525,10 @@ const AdminBookingsPage = () => {
         });
         break;
       case 'staff':
-        result = result.filter(b => b.is_staff_booking === true || b.creator_role === 'staff');
+        result = result.filter(b => b.creator_role === 'staff');
         break;
       case 'student':
-        result = result.filter(b => b.is_staff_booking !== true && b.creator_role !== 'staff');
+        result = result.filter(b => b.creator_role !== 'staff' && b.creator_role !== 'admin');
         break;
     }
 
@@ -685,6 +693,9 @@ const AdminBookingsPage = () => {
 
   // Render booking item
   const renderBookingItem = (booking: Booking) => {
+    // Skip rendering if it's an admin booking
+    if (booking.creator_role === 'admin') return null;
+
     const startDate = formatDate(booking.from_date);
     const startTime = formatTime(booking.from_date);
     const endTime = formatTime(booking.until_date);
@@ -801,30 +812,35 @@ const AdminBookingsPage = () => {
   };
 
   // Filter bookings by status for tabs
-  const getPendingBookings = () => filteredBookings.filter(b => b.status === 'pending');
+  const getPendingBookings = () => filteredBookings.filter(b => b.status === 'pending' && b.creator_role !== 'admin');
 
   const getActiveBookings = () => filteredBookings.filter(b => {
     const now = new Date();
     const start = parseISO(b.from_date);
     const end = parseISO(b.until_date);
-    return (b.status === 'approved' || b.status === 'confirmed' || b.status === 'key_issued') && now >= start && now <= end;
+    return b.creator_role !== 'admin' &&
+        (b.status === 'approved' || b.status === 'confirmed' || b.status === 'key_issued') &&
+        now >= start && now <= end;
   });
 
   const getUpcomingBookings = () => filteredBookings.filter(b => {
     const now = new Date();
     const start = parseISO(b.from_date);
-    return (b.status === 'approved' || b.status === 'confirmed') && now < start;
+    return b.creator_role !== 'admin' &&
+        (b.status === 'approved' || b.status === 'confirmed') &&
+        now < start;
   });
 
   const getCompletedBookings = () => filteredBookings.filter(b => {
     const now = new Date();
     const end = parseISO(b.until_date);
-    return b.status === 'completed' || (b.status === 'approved' && now > end);
+    return b.creator_role !== 'admin' &&
+        (b.status === 'completed' || (b.status === 'approved' && now > end));
   });
 
-  // Get counts of different booking types
+  // Get counts of different booking types (excluding admin)
   const getStaffBookingsCount = () => bookings.filter(b => b.creator_role === 'staff').length;
-  const getStudentBookingsCount = () => bookings.filter(b => b.creator_role !== 'staff').length;
+  const getStudentBookingsCount = () => bookings.filter(b => b.creator_role !== 'staff' && b.creator_role !== 'admin').length;
 
   return (
       <PageLayout role="admin">
@@ -859,7 +875,8 @@ const AdminBookingsPage = () => {
 
           {/* Admin info */}
           <div className="text-sm text-muted-foreground text-right">
-            Администратор: {currentUser} | {currentDateTime}
+            <div>Current User's Login: {currentUser}</div>
+            <div>Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): {currentDateTime}</div>
           </div>
 
           {/* Search and filters row */}
@@ -1233,8 +1250,8 @@ const AdminBookingsPage = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {bookings.filter(b => b.creator_role !== 'staff').length > 0 ? (
-                            bookings.filter(b => b.creator_role !== 'staff')
+                        {bookings.filter(b => b.creator_role !== 'staff' && b.creator_role !== 'admin').length > 0 ? (
+                            bookings.filter(b => b.creator_role !== 'staff' && b.creator_role !== 'admin')
                                 .slice(0, itemsPerPage).map(booking => renderBookingItem(booking))
                         ) : (
                             <div className="text-center py-10">

@@ -39,6 +39,10 @@ const KeysPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAccessCodeError, setIsAccessCodeError] = useState(false);
 
+  // Current user and datetime in the requested format
+  const [currentDateTime, setCurrentDateTime] = useState("2025-05-02 06:27:35");
+  const [currentUser, setCurrentUser] = useState("lilnurik");
+
   // Mock keys data - in a real implementation, this would come from an API
   const [keys, setKeys] = useState<RoomKey[]>([]);
 
@@ -82,15 +86,29 @@ const KeysPage = () => {
         }
       });
 
-      // Mark a couple of keys as under maintenance
-      if (mockKeys.length > 3) {
-        mockKeys[2] = {
-          ...mockKeys[2],
-          status: 'maintenance',
-          maintenance_reason: 'Замена замка',
-          maintenance_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
-        };
-      }
+      // Explicitly add maintenance keys
+      // Instead of modifying existing keys, add new ones to ensure we have maintenance keys
+      mockKeys.push({
+        id: "MAINT-001",
+        room_id: "101",
+        room_name: "Аудитория 101",
+        key_type: "standard",
+        status: "maintenance",
+        maintenance_reason: "Замена замка",
+        maintenance_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        last_updated: new Date().toISOString()
+      });
+
+      mockKeys.push({
+        id: "MAINT-002",
+        room_id: "203",
+        room_name: "Конференц-зал 203",
+        key_type: "electronic",
+        status: "maintenance",
+        maintenance_reason: "Обновление электронного замка",
+        maintenance_until: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        last_updated: new Date().toISOString()
+      });
     }
 
     setKeys(mockKeys);
@@ -213,11 +231,17 @@ const KeysPage = () => {
   return (
       <PageLayout role="guard">
         <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Управление ключами</h1>
-            <p className="text-muted-foreground">
-              Контроль доступа к аудиториям и выдача ключей
-            </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Управление ключами</h1>
+              <p className="text-muted-foreground">
+                Контроль доступа к аудиториям и выдача ключей
+              </p>
+            </div>
+            <div className="text-right text-sm text-muted-foreground">
+              <div>Current User's Login: {currentUser}</div>
+              <div>Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): {currentDateTime}</div>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">

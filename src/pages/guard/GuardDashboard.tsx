@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { differenceInMinutes, parseISO } from "date-fns";
+import { differenceInMinutes, parseISO, subDays, isAfter } from "date-fns";
 
 // Status Badge Component
 const StatusBadge = ({ status }: { status: string }) => {
@@ -103,7 +103,7 @@ interface Booking {
   overdue_minutes?: number;
 }
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5321/api';
 
 const GuardDashboard = () => {
   const navigate = useNavigate();
@@ -114,8 +114,10 @@ const GuardDashboard = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [buildings, setBuildings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<string>("lilnurik"); // Default user for demo
-  const [currentDateTime, setCurrentDateTime] = useState<string>("2025-04-08 07:11:35"); // Default date for demo
+
+  // Updated current user and date/time format as requested
+  const [currentUser, setCurrentUser] = useState<string>("lilnurik");
+  const [currentDateTime, setCurrentDateTime] = useState<string>("2025-05-02 05:57:15");
 
   // Dialog states
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -123,6 +125,13 @@ const GuardDashboard = () => {
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [apiResponse, setApiResponse] = useState<string | null>(null);
+
+  // Helper function to check if a date is within the last week
+  const isWithinLastWeek = (dateString: string) => {
+    const date = parseISO(dateString);
+    const oneWeekAgo = subDays(new Date(), 7);
+    return isAfter(date, oneWeekAgo);
+  };
 
   // Fetch current user info and update time
   useEffect(() => {
@@ -134,7 +143,10 @@ const GuardDashboard = () => {
       setCurrentDateTime(formatted);
     };
 
-    updateDateTime();
+    // Set the fixed datetime as requested
+    setCurrentDateTime("2025-05-02 05:57:15");
+    setCurrentUser("lilnurik");
+
     const interval = setInterval(updateDateTime, 60000); // Update every minute
 
     return () => clearInterval(interval);
@@ -365,18 +377,27 @@ const GuardDashboard = () => {
     return matchesSearch && matchesBuilding;
   });
 
-  // Get current bookings (approved and not given yet)
-  const currentBookings = filteredBookings.filter(b =>
-      b.status === "approved" && !b.key_given
-  );
+  // Get current bookings (approved and not given yet) from the last week and sort newest first
+  const currentBookings = filteredBookings
+      .filter(b =>
+          b.status === "approved" &&
+          !b.key_given &&
+          isWithinLastWeek(b.from_date)
+      )
+      .sort((a, b) => {
+        // Sort by from_date in descending order (newest first)
+        return new Date(b.from_date).getTime() - new Date(a.from_date).getTime();
+      });
 
   // Get bookings with issued keys that haven't been returned
-  const issuedKeyBookings = filteredBookings.filter(b =>
-      b.status === "given" && !b.key_taken
-  );
+  const issuedKeyBookings = filteredBookings
+      .filter(b => b.status === "given" && !b.key_taken)
+      .sort((a, b) => new Date(b.from_date).getTime() - new Date(a.from_date).getTime());
 
   // Get overdue bookings
-  const overdueBookings = filteredBookings.filter(b => b.overdue);
+  const overdueBookings = filteredBookings
+      .filter(b => b.overdue)
+      .sort((a, b) => new Date(b.from_date).getTime() - new Date(a.from_date).getTime());
 
   return (
       <PageLayout role="guard">
@@ -390,15 +411,15 @@ const GuardDashboard = () => {
             </div>
 
             <div className="text-right text-sm text-muted-foreground">
-              <div>Сотрудник: {currentUser}</div>
-              <div>{currentDateTime}</div>
+              <div>Current User's Login: {currentUser}</div>
+              <div>Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): {currentDateTime}</div>
             </div>
           </div>
 
           <div className="flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
               Всего бронирований: {bookings.length} |
-              Подтверждено: {currentBookings.length} |
+              Актуальные подтверждения: {currentBookings.length} |
               Выдано ключей: {issuedKeyBookings.length}
               {overdueBookings.length > 0 && (
                   <span className="text-red-600"> | Просрочено: {overdueBookings.length}</span>
@@ -565,7 +586,7 @@ const GuardDashboard = () => {
                   ) : (
                       <Card>
                         <CardContent className="p-6 text-center">
-                          <p className="text-muted-foreground">Нет текущих подтвержденных бронирований</p>
+                          <p className="text-muted-foreground">Нет актуальных подтвержденных бронирований за последнюю неделю</p>
                         </CardContent>
                       </Card>
                   )}
